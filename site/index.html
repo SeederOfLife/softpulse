@@ -1993,7 +1993,14 @@ $("cgrid").addEventListener("click",e=>{
   const b=e.target.closest("[data-del]"); if(!b) return; const nm=+b.dataset.del;
   S.chimes=S.chimes.filter(c=>midiOf(c.f)!==nm); renderChimes(); save();
 });
-$("chReset").addEventListener("click",()=>{ tun.lastChime=null; tun.pend=[]; tun.rb=[]; tun.lock=null; S.chimes=[]; S.loaded=""; tun.caps=[]; renderLast(false); renderChimes(); renderSets(); setMsg("Ready. Strike the six chimes one by one."); save(); });
+/* fresh start of the listening engine: noise memory, ring reading, big number, Hz match (settings are kept) */
+function resetHearing(){
+  Object.assign(tun,{np:null,ps:null,pm:null,rk:null,npAge:0,npFreeze:0,npHold:false,busySince:null,rises:[],lastRise:0,
+    hist:[],lh:[],jump:0,trackF:null,last:null,lastT:0,clearSince:null,dw:[],sw:[],dpMax:-99,curP:null,
+    onset:null,lastClearT:0,ema:null,flowV:null,flowT:null,hzF:null,lockOn:false,lockSince:null,numAcc:[]});
+  clearReading();
+}
+$("chReset").addEventListener("click",()=>{ tun.lastChime=null; tun.pend=[]; tun.rb=[]; tun.lock=null; S.chimes=[]; S.loaded=""; tun.caps=[]; resetHearing(); renderLast(false); renderChimes(); renderSets(); setMsg("Ready. Strike the six chimes one by one."); save(); });
 $("chSave").addEventListener("click",()=>{
   if(!S.chimes.length) return;
   const ap=activePattern(), sets=loadSets(), base=(ap&&ap.card&&ap.root!=null?ap.name:rootName(S.chimes))+(Math.abs(S.a4-440)>0.001?" @"+(Math.round(S.a4*100)/100):"");
