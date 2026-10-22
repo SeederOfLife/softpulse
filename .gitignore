@@ -1,0 +1,11 @@
+# signing keys never go in the repo
+keys/
+*.pem
+*.keystore
+# build output and recordings
+build/
+*.apk
+*.f32
+*.m4a
+node_modules/
+android/assets/index.html
