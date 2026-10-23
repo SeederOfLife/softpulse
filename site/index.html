@@ -763,7 +763,6 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
       <div class="sheethead"><h2 id="sheetTitle">Tuner settings</h2><button type="button" class="round" id="sheetClose" data-close aria-label="Close settings">×</button></div>
       <div class="field"><label class="lab" for="patSel">Chime pattern</label><select id="patSel"></select><p class="note-line">Auto-detect recognises the set from the notes heard. Pick a pattern to have the other five notes calculated as soon as the root rings. Your saved sets appear here too.</p></div>
       <div class="field"><span class="lab">Octave pairs</span><div class="chips" id="octChips"></div><div class="chips" id="octOffChips"></div><div class="chips" id="lockChips"></div><p class="note-line">When a set has the same note twice (A and a, G and g…), the lower one is tuned 0.5 ¢ above the upper one (upper −0.5 ¢), to match the overtone. Example: A4 reads +2.12 ¢ → A5's target is +1.62 ¢. "Upper +0.5 ¢" turns it the other way round. "Octave locked" lights up when the gap stays inside the lock zone.</p></div>
-      <div class="field"><span class="lab">Whole-chime check</span><div class="chips" id="chordAutoChips"></div><p class="note-line">Automatic: once all six tubes are measured, ringing the whole chime starts the check by itself. You can always press "Check the whole chime".</p></div>
       <div class="field"><span class="lab">Auto-detect starts from</span><div class="chips" id="rootFirstChips"></div></div>
       <div class="field"><span class="lab">Rings to confirm a chime</span><div class="chips" id="confChips"></div><p class="note-line">Each strike is read as soon as the note is steady. The chime appears on the first ring, then its value is refined by averaging the following rings of the same note. After you grind, a clearly different ring starts a fresh average.</p></div>
       <div class="field"><span class="lab">Precision shown</span><div class="chips" id="decChips"></div><p class="note-line">0.001 shows a third decimal in Hz and cents. On clean test tones the reading is accurate to about ±0.005 Hz; with a real mic and room noise the last digit will move more.</p></div>
@@ -901,7 +900,7 @@ function validate(){
   if(typeof S.octPair!=="boolean") S.octPair=true;
   if(![-0.2,-0.3,-0.5,-0.7,-1,0.5].includes(S.octOff)) S.octOff=-0.5;
   if(![0.1,0.2,0.3,0.5,1].includes(S.lockTol)) S.lockTol=0.3;
-  if(typeof S.chordAuto!=="boolean") S.chordAuto=false;
+  S.chordAuto=false;   // the whole-chime check only ever starts from its button
   if(![0.1,0.2,0.3,0.5,1].includes(S.grpTol)) S.grpTol=0.3;
   if(![100,200,300,500].includes(S.avgMs)) S.avgMs=200;
   if(![50,70,90].includes(S.minPct)) S.minPct=70;
@@ -1560,9 +1559,6 @@ function analyse(){
   const ema=tun.ema==null?dbNow:tun.ema;
   if(tun.chord){ chordFrame(now,db>=thr); return; }
   if(tun.chordHush){ if(db<thr-S.hyst||now-(tun.chordCool||0)>4000) tun.chordHush=false; else { setStatus("idle","Whole chime still ringing · let it fade"); return; } }
-  if(S.chordAuto && S.chimes.length>=6 && db>=thr && (tun.chordCool==null||now-tun.chordCool>6000)){
-    const pr=chordScan(15); if(pr.filter(x=>x.found).length>=5){ startChord(now,true); return; }
-  }
   if(dbNow-ema>5 && dbNow>thr) onStrike(now);
   tun.ema=ema*0.75+dbNow*0.25;
   tun.prevNow=dbNow;
@@ -2200,7 +2196,7 @@ function renderRecSettings(){
   $("octChips").innerHTML=chip("On",S.octPair,"1")+chip("Off · plain equal temperament",!S.octPair,"0");
   $("octOffChips").innerHTML=[-0.2,-0.3,-0.5,-0.7,-1,0.5].map(v=>chip("upper "+sgn(v,1)+" ¢",S.octOff===v,v)).join(""); $("octOffChips").hidden=!S.octPair;
   $("lockChips").innerHTML=[0.1,0.2,0.3,0.5,1].map(v=>chip("lock ±"+v+" ¢",S.lockTol===v,v)).join(""); $("lockChips").hidden=!S.octPair;
-  $("chordAutoChips").innerHTML=chip("Only with the button",!S.chordAuto,"0")+chip("Automatic",S.chordAuto,"1");
+
   $("rootFirstChips").innerHTML=chip("The root · first chime struck",S.rootFirst,"1")+chip("Any chime",!S.rootFirst,"0");
   $("confChips").innerHTML=[2,3,4,5].map(v=>chip(v+" rings",S.conf===v,v)).join("");
   $("grpTolChips").innerHTML=[0.1,0.2,0.3,0.5,1].map(v=>chip("±"+v+" ¢",S.grpTol===v,v)).join("");
@@ -2218,7 +2214,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("sheet").hidden
 $("octChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.octPair=b.dataset.v==="1"; renderRecSettings(); renderChimes(); save();});
 $("lockChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.lockTol=+b.dataset.v; tun.lockOn=false; renderRecSettings(); renderChimes(); save();});
 $("octOffChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.octOff=+b.dataset.v; renderRecSettings(); renderChimes(); save();});
-$("chordAutoChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.chordAuto=b.dataset.v==="1"; renderRecSettings(); save();});
+
 $("rootFirstChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.rootFirst=b.dataset.v==="1"; renderRecSettings(); renderChimes(); save();});
 $("confChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.conf=+b.dataset.v; S.chimes.forEach(c=>{ if(!c.grp) c.grp=[c.f]; while(c.grp.length>S.conf) c.grp.shift(); c.f=Math.round(avg(c.grp)*1000)/1000; }); renderRecSettings(); renderChimes(); save();});
 $("recTolChips").addEventListener("click",e=>{const b=e.target.closest("[data-v]"); if(!b) return; S.recTol=+b.dataset.v; renderRecSettings(); save();});
