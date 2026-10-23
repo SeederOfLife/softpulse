@@ -762,7 +762,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
     <div class="sheetpanel">
       <div class="sheethead"><h2 id="sheetTitle">Tuner settings</h2><button type="button" class="round" id="sheetClose" data-close aria-label="Close settings">×</button></div>
       <div class="field"><label class="lab" for="patSel">Chime pattern</label><select id="patSel"></select><p class="note-line">Auto-detect recognises the set from the notes heard. Pick a pattern to have the other five notes calculated as soon as the root rings. Your saved sets appear here too.</p></div>
-      <div class="field"><span class="lab">Octave pairs</span><div class="chips" id="octChips"></div><div class="chips" id="octOffChips"></div><div class="chips" id="lockChips"></div><p class="note-line">When a set has the same note twice (A and a, G and g…), the upper one is tuned this many cents above the lower one, to match the overtone. Example: A4 reads +0.46 ¢ → A5's target is +0.96 ¢. "Octave locked" lights up when the gap stays inside the lock zone.</p></div>
+      <div class="field"><span class="lab">Octave pairs</span><div class="chips" id="octChips"></div><div class="chips" id="octOffChips"></div><div class="chips" id="lockChips"></div><p class="note-line">When a set has the same note twice (A and a, G and g…), the lower one is tuned 0.5 ¢ above the upper one (upper −0.5 ¢), to match the overtone. Example: A4 reads +2.12 ¢ → A5's target is +1.62 ¢. "Upper +0.5 ¢" turns it the other way round. "Octave locked" lights up when the gap stays inside the lock zone.</p></div>
       <div class="field"><span class="lab">Whole-chime check</span><div class="chips" id="chordAutoChips"></div><p class="note-line">Automatic: once all six tubes are measured, ringing the whole chime starts the check by itself. You can always press "Check the whole chime".</p></div>
       <div class="field"><span class="lab">Auto-detect starts from</span><div class="chips" id="rootFirstChips"></div></div>
       <div class="field"><span class="lab">Rings to confirm a chime</span><div class="chips" id="confChips"></div><p class="note-line">Each strike is read as soon as the note is steady. The chime appears on the first ring, then its value is refined by averaging the following rings of the same note. After you grind, a clearly different ring starts a fresh average.</p></div>
@@ -838,7 +838,7 @@ const NOTE_S=["C","C♯","D","D♯","E","F","F♯","G","G♯","A","A♯","B"];
 const NOTE_F=["C","D♭","D","E♭","E","F","G♭","G","A♭","A","B♭","B"];
 const RESP={fast:3,normal:7,stable:14};
 function blankChime(){return {name:"",slots:Array.from({length:6},()=>({tm:null,th:null,meas:null,caps:[]}))};}
-const DEF={style:"rock",meter:"4/4",sub:8,bpm:96,vol:80,soft:25,swing:50,hearSub:true,timer:5,tab:"tuner",a4:440,flat:false,inst:"chimes",tMin:70,tMax:1400,focus:true,nr:"auto",gate:-60,clar:85,resp:"normal",tStr:-1,mode:"peak",chimes:[],loaded:"",tol:3,tunerV:8,recHold:0.5,recRep:2,recTol:2,recMode:"fixed",pick:"struck",dec:2,conf:3,pat:"auto",numRate:0,flow:450,rootFirst:true,octPair:true,octOff:0.5,lockTol:0.3,chordAuto:false,grpTol:0.3,dispNR:true,avgMs:200,minPct:70,selCents:5,holdoff:100,hyst:3,autoDb:12,snd:{A:"kick",B:"snare",S:"hatC"},hzTol:10,hzOct:true,hzGrp:{earth:1,brain:1,sites:1,pitch:1,cosmic:1,solf:1,chakra:0},states:null};
+const DEF={style:"rock",meter:"4/4",sub:8,bpm:96,vol:80,soft:25,swing:50,hearSub:true,timer:5,tab:"tuner",a4:440,flat:false,inst:"chimes",tMin:70,tMax:1400,focus:true,nr:"auto",gate:-60,clar:85,resp:"normal",tStr:-1,mode:"peak",chimes:[],loaded:"",tol:3,tunerV:9,recHold:0.5,recRep:2,recTol:2,recMode:"fixed",pick:"struck",dec:2,conf:3,pat:"auto",numRate:0,flow:450,rootFirst:true,octPair:true,octOff:-0.5,lockTol:0.3,chordAuto:false,grpTol:0.3,dispNR:true,avgMs:200,minPct:70,selCents:5,holdoff:100,hyst:3,autoDb:12,snd:{A:"kick",B:"snare",S:"hatC"},hzTol:10,hzOct:true,hzGrp:{earth:1,brain:1,sites:1,pitch:1,cosmic:1,solf:1,chakra:0},states:null};
 
 function clone(o){return JSON.parse(JSON.stringify(o));}
 function load(){
@@ -880,7 +880,8 @@ function validate(){
   if(!(S.tunerV>=5)){ S.chordAuto=false; S.tunerV=5; }
   if(!(S.tunerV>=6)){ S.pick="struck"; S.tunerV=6; }
   if(!(S.tunerV>=7)){ if(S.lockTol===0.25) S.lockTol=0.5; S.tunerV=7; }
-  if(!(S.tunerV>=8)){ if(S.octOff<0) S.octOff=-S.octOff; if(S.lockTol===0.5||S.lockTol===0.25) S.lockTol=0.3; S.tunerV=8; }   // the upper octave sits higher: A +0.46 → a +0.96
+  if(!(S.tunerV>=8)){ if(S.lockTol===0.5||S.lockTol===0.25) S.lockTol=0.3; S.tunerV=8; }
+  if(!(S.tunerV>=9)){ if(S.octOff>0) S.octOff=-S.octOff; S.tunerV=9; }   // the lower note sits 0.5 ¢ above the upper: A4 +2.12 → A5 +1.62   // the upper octave sits higher: A +0.46 → a +0.96
   if(![3,5,10,25,50].includes(S.hzTol)) S.hzTol=10;
   if(typeof S.hzOct!=="boolean") S.hzOct=true;
   if(!S.hzGrp||typeof S.hzGrp!=="object") S.hzGrp={earth:1,brain:1,sites:1,pitch:1,cosmic:1,solf:1,chakra:0};
@@ -898,7 +899,7 @@ function validate(){
   if(typeof S.dispNR!=="boolean") S.dispNR=true;
   if(typeof S.rootFirst!=="boolean") S.rootFirst=true;
   if(typeof S.octPair!=="boolean") S.octPair=true;
-  if(![0.2,0.3,0.5,0.7,1,-0.5].includes(S.octOff)) S.octOff=0.5;
+  if(![-0.2,-0.3,-0.5,-0.7,-1,0.5].includes(S.octOff)) S.octOff=-0.5;
   if(![0.1,0.2,0.3,0.5,1].includes(S.lockTol)) S.lockTol=0.3;
   if(typeof S.chordAuto!=="boolean") S.chordAuto=false;
   if(![0.1,0.2,0.3,0.5,1].includes(S.grpTol)) S.grpTol=0.3;
@@ -2197,7 +2198,7 @@ function renderRecSettings(){
   $("flowRow").hidden=S.numRate!==0; $("flowIn").value=S.flow; $("flowOut").textContent=flowLabel();
   $("numChips").innerHTML=[[0,"Water"],[0.1,"Fast"],[0.25,"Readable · 4/s"],[0.5,"Calm · 2/s"]].map(o=>chip(o[1],S.numRate===o[0],o[0])).join("");
   $("octChips").innerHTML=chip("On",S.octPair,"1")+chip("Off · plain equal temperament",!S.octPair,"0");
-  $("octOffChips").innerHTML=[0.2,0.3,0.5,0.7,1,-0.5].map(v=>chip("upper "+sgn(v,1)+" ¢",S.octOff===v,v)).join(""); $("octOffChips").hidden=!S.octPair;
+  $("octOffChips").innerHTML=[-0.2,-0.3,-0.5,-0.7,-1,0.5].map(v=>chip("upper "+sgn(v,1)+" ¢",S.octOff===v,v)).join(""); $("octOffChips").hidden=!S.octPair;
   $("lockChips").innerHTML=[0.1,0.2,0.3,0.5,1].map(v=>chip("lock ±"+v+" ¢",S.lockTol===v,v)).join(""); $("lockChips").hidden=!S.octPair;
   $("chordAutoChips").innerHTML=chip("Only with the button",!S.chordAuto,"0")+chip("Automatic",S.chordAuto,"1");
   $("rootFirstChips").innerHTML=chip("The root · first chime struck",S.rootFirst,"1")+chip("Any chime",!S.rootFirst,"0");
