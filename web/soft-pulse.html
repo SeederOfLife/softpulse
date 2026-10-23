@@ -364,6 +364,15 @@ kbd{font:500 11px var(--mono);border:1px solid var(--line);border-radius:4px;pad
 .chpairs .lk svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.2}
 .tcolL,.tcolR{display:contents}
 .tstage .thead{order:-1}
+/* ===== Full screen ===== */
+.fsbtn .fs-out{display:none}
+html.isfs .fsbtn .fs-in{display:none}
+html.isfs .fsbtn .fs-out{display:block}
+.fshelp{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);display:grid;place-items:center;padding:16px}
+.fshelpcard{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:420px;display:grid;gap:10px;font-size:14.5px;line-height:1.45}
+.fshelpcard b:first-child{font:800 18px/1.1 var(--display);text-transform:uppercase;letter-spacing:.04em}
+.fshelpcard p,.fshelpcard ol{margin:0}
+.fshelpcard ol{padding-left:20px;display:grid;gap:4px}
 /* ===== Frequency map ===== */
 .tstatus{min-width:0}
 .hzmatch{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:62%;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer}
@@ -503,6 +512,19 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
   .tcolR .gear{width:36px;height:36px}
   .patinfo{font-size:12px}
 }
+/* narrow phones: room for the full-screen button in the top bar */
+@media (max-width:400px){
+  html[data-tab="tuner"] .tab{padding:7px 10px}
+  html[data-tab="tuner"] .topctl,html[data-tab="tuner"] .topctl .tleft{gap:4px}
+  html[data-tab="tuner"] .topctl .aswitch button{padding:5px 7px}
+  html[data-tab="tuner"] .topctl .gear,html[data-tab="tuner"] .topctl .themebtn{width:34px;height:34px}
+}
+@media (max-width:370px){
+  html[data-tab="tuner"] .tab{padding:6px 8px;font-size:14px}
+  html[data-tab="tuner"] .topctl .aswitch button{padding:4px 5px;font-size:16px}
+  html[data-tab="tuner"] .topctl .gear,html[data-tab="tuner"] .topctl .themebtn{width:32px;height:32px}
+  html[data-tab="tuner"] .topctl .gear svg{width:17px;height:17px}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -515,10 +537,19 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
           <button type="button" data-v="440">440</button><button type="button" data-v="432">432</button>
         </div>
         <button type="button" class="gear" id="gearBtn" aria-label="Tuner settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+        <button type="button" class="gear fsbtn" id="fsBtn" aria-label="Full screen" hidden><svg viewBox="0 0 24 24" class="fs-in"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg viewBox="0 0 24 24" class="fs-out"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
       </div>
       <button type="button" class="themebtn" id="themeBtn" aria-label="Switch to night"></button>
     </div>
   </header>
+  <div class="fshelp" id="fsHelp" hidden role="dialog" aria-labelledby="fsHelpT">
+    <div class="fshelpcard">
+      <b id="fsHelpT">Full screen on iPhone</b>
+      <p>Safari on iPhone doesn't let websites go full screen. Add Soft Pulse to your home screen instead: it then opens full screen, like an app.</p>
+      <ol><li>Tap <b>Share</b> <span aria-hidden="true">(the square with the arrow ↑)</span>.</li><li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open Soft Pulse from its new icon.</li></ol>
+      <button type="button" class="play" id="fsHelpOk">OK</button>
+    </div>
+  </div>
   <nav class="tabs" role="tablist" aria-label="Tools"><button class="tab" role="tab" id="tabTuner" data-tab="tuner">Tuner</button><button class="tab" role="tab" id="tabMetro" data-tab="metro"><span class="tl-long">Metronome</span><span class="tl-short">Metro</span></button></nav>
   <nav class="pagedots" id="pageDots" aria-label="Tuner pages"></nav>
 
@@ -2365,6 +2396,25 @@ function markPage(){ const i=curPage(); document.querySelectorAll("#pageDots [da
 $("tunerView").addEventListener("scroll",()=>{ cancelAnimationFrame(tun.pgRaf); tun.pgRaf=requestAnimationFrame(markPage); },{passive:true});
 $("pageDots").addEventListener("click",e=>{ const b=e.target.closest("[data-p]"); if(!b) return; const v=$("tunerView"); v.scrollTo({left:+b.dataset.p*(v.clientWidth+16),behavior:"smooth"}); });
 window.addEventListener("resize",()=>{ const v=$("tunerView"); const i=tun.lastPage||0; v.scrollLeft=i*(v.clientWidth+16); });
+/* full screen: real full screen where the browser allows it; on iPhone, explain "Add to Home Screen" */
+(function(){
+  const d=document, el=d.documentElement, btn=$("fsBtn");
+  const inApp=/; wv\)/.test(navigator.userAgent);                       // inside the Android app: already full screen
+  const standalone=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
+  const canFS=!!(el.requestFullscreen||el.webkitRequestFullscreen)&&(d.fullscreenEnabled||d.webkitFullscreenEnabled);
+  const iOS=/iPhone|iPod/.test(navigator.userAgent)||(/Macintosh/.test(navigator.userAgent)&&navigator.maxTouchPoints>1&&!canFS);
+  btn.hidden=inApp||standalone||(!canFS&&!iOS);
+  const isFS=()=>!!(d.fullscreenElement||d.webkitFullscreenElement);
+  const sync=()=>{ el.classList.toggle("isfs",isFS()); btn.setAttribute("aria-label",isFS()?"Exit full screen":"Full screen"); };
+  d.addEventListener("fullscreenchange",sync); d.addEventListener("webkitfullscreenchange",sync);
+  btn.addEventListener("click",()=>{
+    if(isFS()){ (d.exitFullscreen||d.webkitExitFullscreen).call(d); return; }
+    if(canFS){ const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el,{navigationUI:"hide"}); if(r&&r.catch) r.catch(()=>{ if(iOS) $("fsHelp").hidden=false; }); return; }
+    $("fsHelp").hidden=false;
+  });
+  $("fsHelpOk").addEventListener("click",()=>{ $("fsHelp").hidden=true; });
+  $("fsHelp").addEventListener("click",e=>{ if(e.target.id==="fsHelp") $("fsHelp").hidden=true; });
+})();
 $("hzMatch").addEventListener("click",()=>{ const v=$("tunerView"), i=PAGES.findIndex(p=>p[0]==="hzCard"); v.scrollTo({left:i*(v.clientWidth+16),behavior:"smooth"}); });
 $("tunerView").addEventListener("scrollend",()=>{ tun.lastPage=curPage(); });
 const SUN='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
