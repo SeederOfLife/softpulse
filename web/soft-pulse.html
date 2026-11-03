@@ -1976,8 +1976,9 @@ function logCsv(){
   return "﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
 }
 function giveFile(name,text,mime){
+  let framed=false; try{ framed=window.top!==window; }catch(e){ framed=true; }   // inside another page (e.g. a preview) downloads are blocked
   const inApp=/; wv\)/.test(navigator.userAgent);
-  if(!inApp){
+  if(!inApp&&!framed){
     try{ const url=URL.createObjectURL(new Blob([text],{type:mime})), a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); setMsg("Saved “"+name+"” to your downloads."); return; }catch(e){}
   }
   $("logCopyText").value=text; $("logCopy").hidden=false;
