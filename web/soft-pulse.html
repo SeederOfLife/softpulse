@@ -435,9 +435,30 @@ html.isfs .fsbtn .fs-out{display:block}
 .ldlinks{display:grid;gap:5px}
 .ldlinks div{display:flex;align-items:center;gap:8px;font-size:12.5px;line-height:1.3}
 .ldlinks .ev{padding:3px 6px;font-size:9.5px}
-.ldsec{font:800 13px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 0 0}
+.ldsec{font:800 13px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 0}
 .ldchord{display:flex;flex-wrap:wrap;gap:6px}
 .ldchord span{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:600 12.5px var(--mono)}
+.ltypes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ltype{border:1px solid var(--line);border-radius:12px;padding:10px 11px;display:grid;gap:4px;cursor:pointer;background:var(--surface);text-align:left;color:var(--ink);font:inherit}
+.ltype b{font:800 15px/1.1 var(--display);letter-spacing:.04em;text-transform:uppercase}
+.ltype small{font:11px var(--mono);color:var(--muted)}
+.ltype span{font-size:12px;color:var(--muted);line-height:1.35}
+.ltype span em{font-style:normal;color:var(--ink);font-weight:700}
+.ltype.none{opacity:.55}
+.ltype .lbar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.ltype .lbar i{display:block;height:100%;background:var(--good)}
+.ldspec{width:100%;height:170px;display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.ldspec .grid{stroke:var(--line);stroke-width:1}
+.ldspec .glab{font:10px var(--mono);fill:var(--muted)}
+.ldspec .fillc{fill:var(--accent);opacity:.22}
+.ldspec .strokec{fill:none;stroke:var(--accent);stroke-width:1.5}
+.ldspec .ghost{fill:none;stroke:var(--muted);stroke-width:1;opacity:.35}
+.ldspec .tm{stroke:var(--good);stroke-width:1;stroke-dasharray:2 3}
+.ldspec .tlab{font:700 10px var(--body);fill:var(--ink)}
+.ldrows{display:grid;gap:6px}
+.ldrow{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:flex;justify-content:space-between;gap:10px;align-items:center;cursor:pointer;background:var(--surface);color:var(--ink);font:inherit;text-align:left;width:100%}
+.ldrow span{font-size:12.5px}
+.ldrow small{font-size:11.5px;color:var(--muted)}
 /* ===== Frequency map ===== */
 .tstatus{min-width:0}
 .hzmatch{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:62%;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer}
@@ -836,6 +857,9 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
           <label class="ghost filebtn" style="display:grid;place-items:center">Restore backup<input type="file" id="logRestore" accept=".json,application/json" hidden></label>
           <button type="button" class="ghost" id="logClear">Clear log</button>
         </div>
+        <p class="ldsec">Your 7 chime cards</p>
+        <div class="ltypes" id="logTypes"></div>
+        <p class="ldsec">Every wayunki</p>
         <div id="logList" style="display:grid;gap:8px"></div>
       </section>
 
@@ -1826,8 +1850,23 @@ function chordFrame(now,loud){
     if(!C.started){ if(now-C.t0>15000) finishChord(true); return; }
   }
   const el=now-C.started; $("chordBtn").textContent="Measuring the whole chime · "+Math.min(3,el/1000).toFixed(1)+" s";
-  if(el>250) C.frames.push(chordScan());
+  if(el>250){ C.frames.push(chordScan()); chordSpecAdd(C); }
   if(el>=3200) finishChord(false);
+}
+/* the sound spectrum of the whole chime, averaged over the check, on 240 log-spaced bands 100 Hz – 5 kHz */
+const SPEC_LO=100, SPEC_HI=5000, SPEC_N=240;
+function chordSpecAdd(C){
+  if(!tun.sp||!ctx) return;
+  if(!tun.spec||tun.spec.length!==tun.sp.frequencyBinCount) tun.spec=new Float32Array(tun.sp.frequencyBinCount);
+  tun.sp.getFloatFrequencyData(tun.spec);
+  const sp=tun.spec, binHz=ctx.sampleRate/tun.sp.fftSize, r=Math.log(SPEC_HI/SPEC_LO);
+  if(!C.spAcc){ C.spAcc=new Float64Array(SPEC_N); C.spN=0; }
+  for(let i=0;i<SPEC_N;i++){
+    const a=Math.max(1,Math.floor(SPEC_LO*Math.exp(r*i/SPEC_N)/binHz)), b=Math.min(sp.length-1,Math.max(a,Math.floor(SPEC_LO*Math.exp(r*(i+1)/SPEC_N)/binHz)));
+    let mx=-200; for(let j=a;j<=b;j++) if(sp[j]>mx) mx=sp[j];
+    if(isFinite(mx)) C.spAcc[i]+=Math.pow(10,mx/10);
+  }
+  C.spN++;
 }
 function finishChord(timeout){
   const C=tun.chord; tun.chord=null; tun.chordCool=performance.now(); tun.chordHush=true; tun.rb=[]; tun.lock=null; tun.onset=null;
@@ -1858,7 +1897,8 @@ function finishChord(timeout){
   const missing=tubes.filter(t=>!t.heard).map(t=>noteLabel(t.m));
   $("chNote").textContent=(missing.length?"Not heard in the mix: "+missing.join(", ")+". ":"")+"Cents are measured with all tubes ringing together; octave pairs are judged by their gap.";
   try{navigator.vibrate&&navigator.vibrate(grade==="ex"?[40,60,40,60,40]:[60]);}catch(_){}
-  logSave(e=>{ e.chord={score:score,at:Date.now(),tubes:tubes.map(t=>({note:noteLabel(t.m),f:t.f?+t.f.toFixed(3):null,dev:t.dev!=null?+t.dev.toFixed(2):null}))}; });
+  const spec=C.spN?{lo:SPEC_LO,hi:SPEC_HI,db:Array.from(C.spAcc,v=>v>0?Math.round(100*Math.log10(v/C.spN))/10:-140)}:null;
+  logSave(e=>{ e.chord={score:score,at:Date.now(),spec:spec,tubes:tubes.map(t=>({note:noteLabel(t.m),m:t.m,f:t.f?+t.f.toFixed(3):null,dev:t.dev!=null?+t.dev.toFixed(2):null}))}; });
 }
 const LOCKSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>';
 $("chordBtn").addEventListener("click",()=>{ if(tun.chord){ tun.chord=null; $("chordBtn").classList.remove("listening"); $("chordBtn").textContent="Check chime"; return; } if(!tun.on){ setMsg("The microphone isn't listening yet."); return; } if(chordTargets().length<3){ setMsg("Strike at least three chimes first so the app knows the set."); return; } startChord(performance.now(),false); });
@@ -2019,7 +2059,7 @@ function logQuality(e){
 function renderLog(){
   if(!$("logList")) return;
   const L=logLive().sort((a,b)=>(b.updated||b.started)-(a.updated||a.started)), NUM=logNums(L);
-  if($("logDev")&&document.activeElement!==$("logDev")) $("logDev").value=S.devName||""; sbPaint();
+  if($("logDev")&&document.activeElement!==$("logDev")) $("logDev").value=S.devName||""; sbPaint(); renderTypes();
   const tubes=L.reduce((a,e)=>a+e.tubes.length,0), ok=L.reduce((a,e)=>a+logQuality(e).ok,0);   // L = visible wayunki
   $("logStats").innerHTML='<div><b>'+L.length+'</b><span>wayunki</span></div><div><b>'+tubes+'</b><span>tubes</span></div><div><b>'+(tubes?Math.round(100*ok/tubes)+"%":"–")+'</b><span>in tune</span></div>';
   $("logList").innerHTML=L.length?L.map(e=>{
@@ -2091,6 +2131,24 @@ function sbPaint(){
   if(n){ box.dataset.s="wait"; $("logSyncTxt").textContent="Uploading "+n+" wayunki…"; return; }
   box.dataset.s=tun.sbOK?"ok":""; $("logSyncTxt").textContent=tun.sbOK?"Shared log · synced "+fmtDate(tun.sbOK).slice(11):"Shared log · connecting…";
 }
+/* spectrum curve(s) of the whole-chime check, drawn like the Focus page: log frequency, loudness up */
+function specSVG(main,ghosts,marks){
+  const W=640,H=170,top=28,bot=18, lo=main.lo, hi=main.hi, L0=Math.log(lo), L1=Math.log(hi), X=f=>(Math.log(f)-L0)/(L1-L0)*W;
+  const all=[main].concat(ghosts||[]), peak=Math.max(...all.map(c=>Math.max(...c.db))), floor=peak-70, Y=d=>top+(1-Math.max(0,Math.min(1,(d-floor)/(peak-floor))))*(H-top-bot);
+  const path=c=>c.db.map((d,i)=>(i?'L':'M')+X(c.lo*Math.pow(c.hi/c.lo,(i+0.5)/c.db.length)).toFixed(1)+','+Y(d).toFixed(1)).join('');
+  let g='';
+  [100,200,300,500,700,1000,2000,3000,5000].forEach(f=>{ if(f<lo||f>hi) return; const x=X(f).toFixed(1); g+='<line class="grid" x1="'+x+'" x2="'+x+'" y1="0" y2="'+H+'"/><text class="glab" x="'+(+x+3)+'" y="'+(H-5)+'">'+(f>=1000?f/1000+'k':f)+'</text>'; });
+  (ghosts||[]).forEach(c=>{ g+='<path class="ghost" d="'+path(c)+'"/>'; });
+  const p=path(main); g+='<path class="fillc" d="'+p+'L'+W+','+H+'L0,'+H+'Z"/><path class="strokec" d="'+p+'"/>';
+  let lastX=-99, up=false;
+  (marks||[]).filter(m=>m.f&&m.f>=lo&&m.f<=hi).sort((a,b)=>a.f-b.f).forEach(m=>{ const xv=X(m.f), x=xv.toFixed(1); up=(xv-lastX<36)?!up:false; lastX=xv;
+    g+='<line class="tm" x1="'+x+'" x2="'+x+'" y1="'+(up?24:top)+'" y2="'+(H-bot)+'"/><text class="tlab" x="'+x+'" y="'+(up?22:11)+'" text-anchor="middle">'+m.label+'</text>'; });
+  return '<svg class="ldspec" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" role="img" aria-label="Spectrum of the whole chime">'+g+'</svg>';
+}
+function specAvg(list){
+  const ok=list.filter(c=>c&&c.db&&c.db.length===list[0].db.length); if(!ok.length) return null;
+  return {lo:ok[0].lo,hi:ok[0].hi,db:ok[0].db.map((_,i)=>Math.round(100*Math.log10(ok.reduce((a,c)=>a+Math.pow(10,c.db[i]/10),0)/ok.length))/10)};
+}
 /* one wayunki, all its data */
 function ldSpark(cs,tol){
   if(cs.length<2) return '';
@@ -2111,7 +2169,11 @@ function ldLinks(t,heard){
   out.sort((a,b)=>(a.best.it.r?1:0)-(b.best.it.r?1:0)||(Math.abs(a.best.c||0)+(a.best.k?3:0))-(Math.abs(b.best.c||0)+(b.best.k?3:0)));
   return out;
 }
-function openLogDetail(id){
+function ldOpen(v,fresh){ if(fresh) tun.ldNav=[]; (tun.ldNav||(tun.ldNav=[])).push(v); ldRender(v); }
+function ldRender(v){ if(v.k==="t") renderTypeDetail(v.id); else renderLogDetail(v.id); $("logDetail").hidden=false; $("logDetail").scrollTop=0; }
+function ldBackNav(){ const n=tun.ldNav||[]; n.pop(); if(n.length) ldRender(n[n.length-1]); else { $("logDetail").hidden=true; } }
+function openLogDetail(id){ ldOpen({k:"w",id:id},true); }
+function renderLogDetail(id){
   const pend=pendLoad(), L=logLive(), e=id==="__pending"?pend:L.find(x=>x.id===id); if(!e) return;
   const NUM=logNums(L), num=id==="__pending"?null:NUM[e.id], q=logQuality(e), tol=e.tol||3;
   $("ldTitle").textContent=(num?'#'+num+' · ':'Now tuning · ')+(e.label||e.card||'Free set');
@@ -2132,11 +2194,59 @@ function openLogDetail(id){
       '<p class="ldsec">Interesting Hz connections</p>'+(links.length?'<div class="ldlinks">'+links.slice(0,8).map(o=>'<div><span class="ev" data-ev="'+o.best.it.ev+'">'+EVN[o.best.it.ev]+'</span><span>'+esc(hzMatchText(o.best))+(o.n?' · heard '+o.n+' of '+heard.length+' strikes':' · final value')+'</span></div>').join('')+'</div>':'<p class="note-line">None within ±'+S.hzTol+' ¢ (see Hz map settings).</p>')+
       '</div>';
   });
-  if(e.chord&&e.chord.tubes) h+='<p class="ldsec">Whole-chime check · score '+e.chord.score+(e.chord.at?' · '+fmtDate(e.chord.at):'')+'</p><div class="ldchord">'+e.chord.tubes.map(t=>'<span>'+t.note+' '+(t.dev==null?'not heard':sgn(t.dev,2)+' ¢')+'</span>').join('')+'</div>';
+  if(e.chord&&e.chord.tubes){
+    h+='<p class="ldsec">Whole-chime check · score '+e.chord.score+(e.chord.at?' · '+fmtDate(e.chord.at):'')+'</p>';
+    if(e.chord.spec) h+=specSVG(e.chord.spec,null,e.chord.tubes.map(t=>({f:t.f,label:t.note})))+'<p class="note-line">The sound of all the tubes ringing together, averaged over the check: each peak is a tube (dashed lines), the smaller ones further right are their overtones.</p>';
+    h+='<div class="ldchord">'+e.chord.tubes.map(t=>'<span>'+t.note+' '+(t.dev==null?'not heard':sgn(t.dev,2)+' ¢')+'</span>').join('')+'</div>';
+  }
   h+='<div class="logbtns" style="margin-top:6px"><button type="button" class="ghost" id="ldCsv">Export this wayunki</button>'+(num?'<button type="button" class="ghost" id="ldDel">Remove from the log</button>':'')+'</div>';
-  $("ldBody").innerHTML=h; $("logDetail").hidden=false; $("logDetail").scrollTop=0; tun.ldId=id;
+  $("ldBody").innerHTML=h; tun.ldId=id;
+  $("ldBack").textContent=(tun.ldNav&&tun.ldNav.length>1)?"‹ Back":"‹ Log";
   $("ldCsv").onclick=()=>giveFile("soft-pulse-wayunki-"+(num||"now")+"-"+fmtDate(e.started).slice(0,10)+".csv",logCsv(id==="__pending"?[e]:[e.id]),"text/csv;charset=utf-8");
-  if($("ldDel")) $("ldDel").onclick=()=>{ const b=document.createElement("button"); b.dataset.logdel=e.id; $("logList").appendChild(b); b.click(); b.remove(); if(!logLive().find(x=>x.id===e.id)) $("logDetail").hidden=true; };
+  if($("ldDel")) $("ldDel").onclick=()=>{ const b=document.createElement("button"); b.dataset.logdel=e.id; $("logList").appendChild(b); b.click(); b.remove(); if(!logLive().find(x=>x.id===e.id)) ldBackNav(); };
+}
+function cardNotes(c){ return c.iv.map(i=>noteLabel(60+c.pc+i)); }
+function typeStats(c){
+  const W=logLive().filter(e=>e.card===c.name).sort((a,b)=>a.started-b.started);
+  const T=[].concat(...W.map(e=>e.tubes)), ok=T.filter(t=>Math.abs(t.off)<=(t.tol||3)).length;
+  const P=T.filter(t=>t.pair), lk=P.filter(t=>t.locked).length, CH=W.filter(e=>e.chord).map(e=>e.chord.score);
+  return {W:W,n:W.length,tubes:T.length,ok:ok,pairs:P.length,lk:lk,score:CH.length?Math.round(CH.reduce((a,b)=>a+b,0)/CH.length):null,
+    strikes:W.length?Math.round(W.reduce((a,e)=>a+e.rings.length,0)/W.length):0,last:W.length?W[W.length-1].updated||W[W.length-1].started:null};
+}
+function renderTypes(){
+  const box=$("logTypes"); if(!box) return;
+  box.innerHTML=CARDS.map(c=>{ const st=typeStats(c), pct=st.tubes?Math.round(100*st.ok/st.tubes):0;
+    return '<button type="button" class="ltype'+(st.n?'':' none')+'" data-type="'+c.id+'"><b>'+c.name+'</b><small>'+cardNotes(c).join(' ')+'</small>'+
+      (st.n?'<span><em>'+st.n+'</em> tuned · <em>'+pct+'%</em> in tune'+(st.pairs?' · <em>'+st.lk+'/'+st.pairs+'</em> octaves locked':'')+(st.score!=null?' · check <em>'+st.score+'</em>':'')+'</span><div class="lbar"><i style="width:'+pct+'%"></i></div><span>last '+fmtDate(st.last).slice(0,10)+'</span>':'<span>not tuned yet</span>')+'</button>';
+  }).join('');
+}
+function renderTypeDetail(cid){
+  const c=CARDS.find(x=>x.id===cid); if(!c) return;
+  const st=typeStats(c), W=st.W, NUM=logNums(logLive()), notes=cardNotes(c);
+  $("ldTitle").textContent=c.name+' · '+st.n+' wayunki'; $("ldBack").textContent="‹ Log";
+  const phones=[...new Set(W.map(e=>e.device).filter(Boolean))];
+  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  const meta=[["Notes",notes.join(' ')],["Tuned",String(st.n)],["First",W.length?fmtDate(W[0].started):"—"],["Last",st.last?fmtDate(st.last):"—"],["Phones",phones.join(', ')||"—"],
+    ["In tune",st.tubes?Math.round(100*st.ok/st.tubes)+"% of "+st.tubes+" tubes":"—"],["Octaves locked",st.pairs?st.lk+" of "+st.pairs:"—"],["Avg check score",st.score!=null?String(st.score):"no check yet"],["Avg strikes",st.n?String(st.strikes):"—"]];
+  let h='<div class="ldmeta">'+meta.map(m=>'<div><span>'+m[0]+'</span><b>'+esc(m[1])+'</b></div>').join('')+'</div>';
+  if(!st.n){ $("ldBody").innerHTML=h+'<p class="note-line">No '+c.name+' wayunki in the log yet. Tune one and press Reset chimes.</p>'; return; }
+  const specs=W.filter(e=>e.chord&&e.chord.spec).map(e=>e.chord.spec);
+  if(specs.length){ const av=specAvg(specs); h+='<p class="ldsec">Whole-chime spectrum · '+specs.length+' check'+(specs.length>1?'s':'')+'</p>'+specSVG(av,specs.length>1?specs:null,notes.map((n,i)=>({f:mf(60+c.pc+c.iv[i]),label:n})))+'<p class="note-line">'+(specs.length>1?'Bold: the average of all checks of this card. Faint: each wayunki. ':'')+'Dashed lines: where each tube should ring.</p>'; }
+  else h+='<p class="note-line">No whole-chime check recorded for this card yet: press Check chime on a finished wayunki to add its spectrum curve.</p>';
+  h+='<p class="ldsec">Tube by tube, over all '+st.n+' wayunki</p>';
+  c.iv.forEach((iv,i)=>{
+    const m=60+c.pc+iv, T=W.map(e=>e.tubes.find(t=>t.m===m)).filter(Boolean); if(!T.length){ h+='<div class="ldtube"><div class="ldtop"><span><b>'+notes[i]+'</b> <small>tube '+(i+1)+'</small></span><small>not measured</small></div></div>'; return; }
+    const offs=T.map(t=>t.off), mean=avg(offs), sd=Math.sqrt(avg(offs.map(o=>(o-mean)*(o-mean)))), okN=T.filter(t=>Math.abs(t.off)<=3).length, P=T.filter(t=>t.pair);
+    const strikes=W.map(e=>e.rings.filter(r=>r.m===m).length), links={};
+    T.forEach(t=>(t.links||[]).forEach(l=>{ links[l.n]=links[l.n]||{l:l,n:0}; links[l.n].n++; }));
+    h+='<div class="ldtube '+stateOf(mean)+'"><div class="ldtop"><span><b>'+notes[i]+'</b> <small>tube '+(i+1)+(i===0?' · root':'')+'</small></span><strong>avg '+sgn(mean,2)+' ¢</strong></div>'+
+      '<div class="ldfacts"><span>measured <em>'+T.length+'×</em></span><span>spread <em>±'+sd.toFixed(2)+' ¢</em></span><span>range <em>'+sgn(Math.min(...offs),2)+' … '+sgn(Math.max(...offs),2)+' ¢</em></span><span>in tune <em>'+okN+' of '+T.length+'</em></span>'+
+      (P.length?'<span>octave locked <em>'+P.filter(t=>t.locked).length+' of '+P.length+'</em></span>':'')+'<span>avg final <em>'+avg(T.map(t=>t.f)).toFixed(3)+' Hz</em></span><span>avg strikes <em>'+avg(strikes).toFixed(1)+'</em></span><span>avg value changes <em>'+avg(T.map(t=>t.retunes||0)).toFixed(1)+'</em></span></div>'+
+      (offs.length>1?'<p class="ldsec">Final value of each wayunki, oldest to newest</p>'+ldSpark(offs,3):'')+
+      (Object.keys(links).length?'<p class="ldsec">Hz connections</p><div class="ldlinks">'+Object.values(links).sort((a,b)=>b.n-a.n).slice(0,5).map(o=>'<div><span class="ev" data-ev="'+o.l.ev+'">'+EVN[o.l.ev]+'</span><span>'+esc(o.l.n)+' · on '+o.n+' of '+T.length+' wayunki</span></div>').join('')+'</div>':'')+'</div>';
+  });
+  h+='<p class="ldsec">The '+c.name+' wayunki</p><div class="ldrows">'+W.slice().reverse().map(e=>{ const q=logQuality(e); return '<button type="button" class="ldrow" data-ldw="'+e.id+'"><span><b>#'+NUM[e.id]+'</b> · '+fmtDate(e.started)+(e.device?' · '+esc(e.device):'')+'</span><small>'+q.ok+'/'+q.n+' in tune'+(q.pairs?' · '+q.lk+'/'+q.pairs+' 🔒':'')+(e.chord?' · check '+e.chord.score:'')+' ›</small></button>'; }).join('')+'</div>';
+  $("ldBody").innerHTML=h;
 }
 function csvCell(v){ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function logCsv(only){
@@ -2724,8 +2834,10 @@ $("logClear").addEventListener("click",()=>{ const L=logLoad(), live=L.filter(e=
   const now=Date.now(); live.forEach(e=>{ e.deleted=true; e.updated=now; }); logStore(L); live.forEach(e=>sbQueue(e.id)); S.logId=null; save(); renderLog(); setMsg("Tuning log cleared."); });
 $("logList").addEventListener("click",e=>{ if(!e.target.closest("[data-logdel]")){ const o=e.target.closest("[data-logopen]"); if(o) openLogDetail(o.dataset.logopen); } });
 $("logList").addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ const o=e.target.closest("[data-logopen]"); if(o&&!e.target.closest("[data-logdel]")){ e.preventDefault(); openLogDetail(o.dataset.logopen); } } });
-$("ldBack").addEventListener("click",()=>{ $("logDetail").hidden=true; tun.ldId=null; });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("logDetail").hidden){ $("logDetail").hidden=true; tun.ldId=null; } });
+$("ldBack").addEventListener("click",()=>ldBackNav());
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("logDetail").hidden) ldBackNav(); });
+$("logTypes").addEventListener("click",e=>{ const b=e.target.closest("[data-type]"); if(b) ldOpen({k:"t",id:b.dataset.type},true); });
+$("ldBody").addEventListener("click",e=>{ const b=e.target.closest("[data-ldw]"); if(b) ldOpen({k:"w",id:b.dataset.ldw}); });
 $("logList").addEventListener("click",e=>{ const b=e.target.closest("[data-logdel]"); if(!b) return; e.stopPropagation(); const L=logLoad(), x=L.find(y=>y.id===b.dataset.logdel), NUM=logNums(L.filter(y=>!y.deleted));
   if(!x||!confirm("Remove wayunki #"+NUM[x.id]+" ("+(x.label||x.card||"free set")+") from the log"+(sbOn()?" on every phone":"")+"?")) return;
   x.deleted=true; x.updated=Date.now(); logStore(L); sbQueue(x.id); if(S.logId===x.id) S.logId=null; save(); renderLog(); });
