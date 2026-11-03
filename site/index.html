@@ -793,7 +793,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
 
       <section class="card" id="logCard" aria-label="Tuning log">
         <h2>Tuning log</h2>
-        <p class="note-line">Every wayunki you tune is saved here by itself, after every ring: the card, every frequency heard while tuning each tube, the final value, its target, octave locks, Hz-map connections and the whole-chime score. Reset chimes starts the next wayunki. The log is shared by all the workshop's phones, the website and the app: it uploads by itself and works offline too, sending its changes when the phone is back online.</p>
+        <p class="note-line">When a wayunki is finished, press Reset chimes: it is saved here with the card, every frequency heard while tuning each tube, the final value, its target, octave locks, Hz-map connections and the whole-chime score. The log is shared by all the workshop's phones, the website and the app: it uploads by itself and works offline too, sending its changes when the phone is back online.</p>
         <div class="logsync" id="logSync" data-s=""><i></i><span id="logSyncTxt">Kept on this phone only</span></div>
         <label class="logdev">This phone<input type="text" id="logDev" maxlength="40" placeholder="name, e.g. office phone"></label>
         <div class="logstats" id="logStats"></div>
@@ -1944,11 +1944,10 @@ function renderLast(){}
 const LOGKEY="softpulse.log";
 function logLoad(){ try{ const a=JSON.parse(localStorage.getItem(LOGKEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
 function logStore(a){ try{ localStorage.setItem(LOGKEY,JSON.stringify(a)); return true; }catch(e){ return false; } }
-function logEntry(create){
-  const L=logLoad(); let e=S.logId&&L.find(x=>x.id===S.logId);
-  if(!e&&create){ const n=L.reduce((m,x)=>Math.max(m,x.n||0),0)+1; e={id:"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:n,started:Date.now(),device:S.devName||"",rings:[],tubes:[]}; L.push(e); S.logId=e.id; save(); }
-  return {L:L,e:e};
-}
+/* the wayunki being tuned is held on this phone; it goes into the log (and uploads) only when Reset chimes is pressed */
+const PENDKEY="softpulse.log.pending";
+function pendLoad(){ try{ const e=JSON.parse(localStorage.getItem(PENDKEY)||"null"); return e&&e.id?e:null; }catch(_){ return null; } }
+function pendStore(e){ try{ if(e) localStorage.setItem(PENDKEY,JSON.stringify(e)); else localStorage.removeItem(PENDKEY); }catch(_){} }
 function tubeNum(ap,m){ if(ap&&ap.iv&&ap.root!=null){ const i=ap.iv.indexOf(m-ap.root); if(i>=0) return i+1; } return null; }
 function logFill(e){
   const ap=activePattern();
@@ -1963,9 +1962,20 @@ function logFill(e){
       links:hzMatches(c.f,false).filter(x=>!x.it.r).slice(0,3).map(x=>({n:x.it.n,ev:x.it.ev,c:+x.c.toFixed(1),k:x.k}))};
   });
 }
-function logSave(fn){ const o=logEntry(S.chimes.length>0); if(!o.e) return; if(fn) fn(o.e); logFill(o.e); logStore(o.L); sbQueue(o.e.id); if(curPageId()==="logCard") renderLog(); }
+function logSave(fn){
+  let e=pendLoad();
+  if(!e){ if(!S.chimes.length) return; e={id:"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),started:Date.now(),device:S.devName||"",rings:[],tubes:[]}; }
+  if(fn) fn(e); logFill(e); pendStore(e); if(curPageId()==="logCard") renderLog();
+}
+function logCommit(){
+  const e=pendLoad(); pendStore(null);
+  if(!e||!e.tubes.length){ if(curPageId()==="logCard") renderLog(); return 0; }
+  const L=logLoad(); e.n=L.reduce((m,x)=>Math.max(m,x.n||0),0)+1; L.push(e); logStore(L); sbQueue(e.id);
+  if(curPageId()==="logCard") renderLog();
+  return logNums(L.filter(x=>!x.deleted))[e.id]||e.n;
+}
 function logRing(f){ logSave(e=>{ e.rings.push({t:Date.now(),f:+f.toFixed(3),m:midiOf(f)}); }); }
-function logNew(){ S.logId=null; save(); if(curPageId()==="logCard") renderLog(); }
+function logNew(){ pendStore(null); if(curPageId()==="logCard") renderLog(); }
 function fmtDate(t){ const d=new Date(t), z=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes()); }
 function logLive(){ return logLoad().filter(e=>!e.deleted); }
 function logNums(L){ const m={}; L.slice().sort((a,b)=>a.started-b.started||(a.id<b.id?-1:1)).forEach((e,i)=>{ m[e.id]=i+1; }); return m; }
@@ -1980,13 +1990,16 @@ function renderLog(){
   const tubes=L.reduce((a,e)=>a+e.tubes.length,0), ok=L.reduce((a,e)=>a+logQuality(e).ok,0);   // L = visible wayunki
   $("logStats").innerHTML='<div><b>'+L.length+'</b><span>wayunki</span></div><div><b>'+tubes+'</b><span>tubes</span></div><div><b>'+(tubes?Math.round(100*ok/tubes)+"%":"–")+'</b><span>in tune</span></div>';
   $("logList").innerHTML=L.length?L.map(e=>{
-    const q=logQuality(e), live=e.id===S.logId;
+    const q=logQuality(e), live=false;
     return '<div class="logitem'+(live?" lnow":"")+'"><button type="button" class="ldel" data-logdel="'+e.id+'" aria-label="Delete wayunki '+NUM[e.id]+'">×</button>'+
       '<h3>#'+NUM[e.id]+' · '+(e.label||e.card||"Free set")+(live?' · tuning now':'')+'</h3>'+
       '<div class="lmeta">'+(e.device?esc(e.device)+' · ':'')+fmtDate(e.started)+(e.updated&&fmtDate(e.updated)!==fmtDate(e.started)?" → "+fmtDate(e.updated).slice(11):"")+' · A = '+e.a4+(e.label&&e.card?' · '+e.card:'')+' · '+e.rings.length+' strike'+(e.rings.length===1?"":"s")+' heard</div>'+
       '<div class="lq">'+q.n+' of 6 tubes · '+q.ok+' in tune (±'+(e.tol||3)+' ¢)'+(q.pairs?' · '+q.lk+' of '+q.pairs+' octave'+(q.pairs>1?"s":"")+' locked':'')+(e.chord?' · whole-chime check '+e.chord.score:'')+'</div>'+
       '<div class="logtubes">'+e.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+(t.retunes?' ·'+t.retunes+'×':'')+'</span>').join("")+'</div></div>';
-  }).join(""):'<p class="note-line">Nothing yet. Strike a chime on the Tuner page and it appears here.</p>';
+  }).join(""):'<p class="note-line">Nothing saved yet. Tune a wayunki on the Tuner page, then press Reset chimes to save it here.</p>';
+  const P=pendLoad();
+  if(P&&P.tubes.length) $("logList").insertAdjacentHTML("afterbegin",'<div class="logitem lnow"><h3>Now tuning · '+(P.label||P.card||"free set")+'</h3><div class="lmeta">Not in the log yet: press Reset chimes when this wayunki is finished to save it'+(sbOn()?' and share it':'')+'.</div>'+
+    '<div class="logtubes">'+P.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+'</span>').join("")+'</div></div>');
 }
 /* Shared workshop log. The key below is Supabase's public "anon" key: it is meant to sit in web pages;
    the table's rules only allow reading, adding and updating (no deleting). */
@@ -2220,7 +2233,7 @@ function resetHearing(){
     onset:null,lastClearT:0,ema:null,flowV:null,flowT:null,hzF:null,lockOn:false,lockSince:null,numAcc:[]});
   clearReading();
 }
-$("chReset").addEventListener("click",()=>{ if(S.chimes.length) logSave(); logNew(); tun.lastChime=null; tun.pend=[]; tun.rb=[]; tun.lock=null; S.chimes=[]; S.loaded=""; tun.caps=[]; resetHearing(); renderLast(false); renderChimes(); renderSets(); setMsg("Ready. Strike the six chimes one by one."); save(); });
+$("chReset").addEventListener("click",()=>{ logSave(); const savedN=logCommit(); tun.lastChime=null; tun.pend=[]; tun.rb=[]; tun.lock=null; S.chimes=[]; S.loaded=""; tun.caps=[]; resetHearing(); renderLast(false); renderChimes(); renderSets(); setMsg((savedN?"Wayunki #"+savedN+" saved to the log. ":"")+"Ready. Strike the six chimes one by one."); save(); });
 $("chSave").addEventListener("click",()=>{
   if(!S.chimes.length) return;
   const ap=activePattern(), sets=loadSets(), base=(ap&&ap.card&&ap.root!=null?ap.name:rootName(S.chimes))+(Math.abs(S.a4-440)>0.001?" @"+(Math.round(S.a4*100)/100):"");
