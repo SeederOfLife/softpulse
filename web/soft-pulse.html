@@ -393,6 +393,13 @@ html.isfs .fsbtn .fs-out{display:block}
 .logitem .ldel{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);padding:0;font-size:16px}
 .logcopy{position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:81;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:8px;max-width:560px;margin:0 auto;box-shadow:0 18px 50px rgba(0,0,0,.35)}
 .logcopy textarea{width:100%;height:40vh;font:12px var(--mono);border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);box-sizing:border-box}
+.logsync{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);flex-wrap:wrap}
+.logsync i{width:9px;height:9px;border-radius:50%;background:var(--line);flex:none}
+.logsync[data-s="ok"] i{background:var(--good)}
+.logsync[data-s="wait"] i{background:var(--near)}
+.logsync[data-s="err"] i{background:var(--bad)}
+.logdev{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.logdev input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px;font:inherit;font-size:14px}
 /* ===== Frequency map ===== */
 .tstatus{min-width:0}
 .hzmatch{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:62%;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer}
@@ -775,7 +782,9 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
 
       <section class="card" id="logCard" aria-label="Tuning log">
         <h2>Tuning log</h2>
-        <p class="note-line">Every wayunki you tune is saved here by itself, after every ring: the card, every frequency heard while tuning each tube, the final value, its target, octave locks, Hz-map connections and the whole-chime score. Reset chimes starts the next wayunki. The log is kept on this phone and browser (a private window forgets it), so export it now and then.</p>
+        <p class="note-line">Every wayunki you tune is saved here by itself, after every ring: the card, every frequency heard while tuning each tube, the final value, its target, octave locks, Hz-map connections and the whole-chime score. Reset chimes starts the next wayunki. The log is shared by all the workshop's phones, the website and the app: it uploads by itself and works offline too, sending its changes when the phone is back online.</p>
+        <div class="logsync" id="logSync" data-s=""><i></i><span id="logSyncTxt">Kept on this phone only</span></div>
+        <label class="logdev">This phone<input type="text" id="logDev" maxlength="40" placeholder="name, e.g. office phone"></label>
         <div class="logstats" id="logStats"></div>
         <div class="logbtns">
           <button type="button" class="play" id="logCsv">Export spreadsheet</button>
@@ -1926,7 +1935,7 @@ function logLoad(){ try{ const a=JSON.parse(localStorage.getItem(LOGKEY)||"[]");
 function logStore(a){ try{ localStorage.setItem(LOGKEY,JSON.stringify(a)); return true; }catch(e){ return false; } }
 function logEntry(create){
   const L=logLoad(); let e=S.logId&&L.find(x=>x.id===S.logId);
-  if(!e&&create){ const n=L.reduce((m,x)=>Math.max(m,x.n||0),0)+1; e={id:"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:n,started:Date.now(),rings:[],tubes:[]}; L.push(e); S.logId=e.id; save(); }
+  if(!e&&create){ const n=L.reduce((m,x)=>Math.max(m,x.n||0),0)+1; e={id:"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:n,started:Date.now(),device:S.devName||"",rings:[],tubes:[]}; L.push(e); S.logId=e.id; save(); }
   return {L:L,e:e};
 }
 function tubeNum(ap,m){ if(ap&&ap.iv&&ap.root!=null){ const i=ap.iv.indexOf(m-ap.root); if(i>=0) return i+1; } return null; }
@@ -1943,35 +1952,96 @@ function logFill(e){
       links:hzMatches(c.f,false).filter(x=>!x.it.r).slice(0,3).map(x=>({n:x.it.n,ev:x.it.ev,c:+x.c.toFixed(1),k:x.k}))};
   });
 }
-function logSave(fn){ const o=logEntry(S.chimes.length>0); if(!o.e) return; if(fn) fn(o.e); logFill(o.e); logStore(o.L); if(curPageId()==="logCard") renderLog(); }
+function logSave(fn){ const o=logEntry(S.chimes.length>0); if(!o.e) return; if(fn) fn(o.e); logFill(o.e); logStore(o.L); sbQueue(o.e.id); if(curPageId()==="logCard") renderLog(); }
 function logRing(f){ logSave(e=>{ e.rings.push({t:Date.now(),f:+f.toFixed(3),m:midiOf(f)}); }); }
 function logNew(){ S.logId=null; save(); if(curPageId()==="logCard") renderLog(); }
 function fmtDate(t){ const d=new Date(t), z=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes()); }
+function logLive(){ return logLoad().filter(e=>!e.deleted); }
+function logNums(L){ const m={}; L.slice().sort((a,b)=>a.started-b.started||(a.id<b.id?-1:1)).forEach((e,i)=>{ m[e.id]=i+1; }); return m; }
 function logQuality(e){
   const n=e.tubes.length, ok=e.tubes.filter(t=>Math.abs(t.off)<=(e.tol||3)).length, pairs=e.tubes.filter(t=>t.pair), lk=pairs.filter(t=>t.locked).length;
   return {n:n,ok:ok,pairs:pairs.length,lk:lk};
 }
 function renderLog(){
   if(!$("logList")) return;
-  const L=logLoad().slice().sort((a,b)=>(b.updated||b.started)-(a.updated||a.started));
-  const tubes=L.reduce((a,e)=>a+e.tubes.length,0), ok=L.reduce((a,e)=>a+logQuality(e).ok,0);
+  const L=logLive().sort((a,b)=>(b.updated||b.started)-(a.updated||a.started)), NUM=logNums(L);
+  if($("logDev")&&document.activeElement!==$("logDev")) $("logDev").value=S.devName||""; sbPaint();
+  const tubes=L.reduce((a,e)=>a+e.tubes.length,0), ok=L.reduce((a,e)=>a+logQuality(e).ok,0);   // L = visible wayunki
   $("logStats").innerHTML='<div><b>'+L.length+'</b><span>wayunki</span></div><div><b>'+tubes+'</b><span>tubes</span></div><div><b>'+(tubes?Math.round(100*ok/tubes)+"%":"–")+'</b><span>in tune</span></div>';
   $("logList").innerHTML=L.length?L.map(e=>{
     const q=logQuality(e), live=e.id===S.logId;
-    return '<div class="logitem'+(live?" lnow":"")+'"><button type="button" class="ldel" data-logdel="'+e.id+'" aria-label="Delete wayunki '+e.n+'">×</button>'+
-      '<h3>#'+e.n+' · '+(e.label||e.card||"Free set")+(live?' · tuning now':'')+'</h3>'+
-      '<div class="lmeta">'+fmtDate(e.started)+(e.updated&&fmtDate(e.updated)!==fmtDate(e.started)?" → "+fmtDate(e.updated).slice(11):"")+' · A = '+e.a4+(e.label&&e.card?' · '+e.card:'')+' · '+e.rings.length+' strike'+(e.rings.length===1?"":"s")+' heard</div>'+
+    return '<div class="logitem'+(live?" lnow":"")+'"><button type="button" class="ldel" data-logdel="'+e.id+'" aria-label="Delete wayunki '+NUM[e.id]+'">×</button>'+
+      '<h3>#'+NUM[e.id]+' · '+(e.label||e.card||"Free set")+(live?' · tuning now':'')+'</h3>'+
+      '<div class="lmeta">'+(e.device?esc(e.device)+' · ':'')+fmtDate(e.started)+(e.updated&&fmtDate(e.updated)!==fmtDate(e.started)?" → "+fmtDate(e.updated).slice(11):"")+' · A = '+e.a4+(e.label&&e.card?' · '+e.card:'')+' · '+e.rings.length+' strike'+(e.rings.length===1?"":"s")+' heard</div>'+
       '<div class="lq">'+q.n+' of 6 tubes · '+q.ok+' in tune (±'+(e.tol||3)+' ¢)'+(q.pairs?' · '+q.lk+' of '+q.pairs+' octave'+(q.pairs>1?"s":"")+' locked':'')+(e.chord?' · whole-chime check '+e.chord.score:'')+'</div>'+
       '<div class="logtubes">'+e.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+(t.retunes?' ·'+t.retunes+'×':'')+'</span>').join("")+'</div></div>';
   }).join(""):'<p class="note-line">Nothing yet. Strike a chime on the Tuner page and it appears here.</p>';
 }
+/* Shared workshop log. The key below is Supabase's public "anon" key: it is meant to sit in web pages;
+   the table's rules only allow reading, adding and updating (no deleting). */
+const SB={url:"https://xsgtqcuwiaerwowjognx.supabase.co",key:"sb_publishable_3Nv7gom9AMd55z1fWVg1Ig_AGL2W6qz"};
+const SBQ="softpulse.log.queue", SBT="softpulse.log.pulled";
+function sbOn(){ return !!(SB.url&&SB.key)&&typeof fetch==="function"; }
+function esc(t){ return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function sbQ(){ try{ const a=JSON.parse(localStorage.getItem(SBQ)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function sbQSet(a){ try{ localStorage.setItem(SBQ,JSON.stringify(a)); }catch(e){} }
+function sbQueue(id){ if(!sbOn()) return; const q=sbQ(); if(!q.includes(id)){ q.push(id); sbQSet(q); } clearTimeout(tun.sbT); tun.sbT=setTimeout(sbPush,2500); sbPaint(); }
+function sbReq(path,opt){
+  const h={apikey:SB.key,"Content-Type":"application/json"};
+  if(!/^sb_/.test(SB.key)) h.Authorization="Bearer "+SB.key;   // new publishable keys go in apikey only
+  return fetch(SB.url.replace(/\/$/,"")+"/rest/v1/"+path,Object.assign({},opt,{headers:Object.assign(h,(opt&&opt.headers)||{})}))
+    .then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.status===204?null:r.text().then(t=>t?JSON.parse(t):null); });
+}
+function sbPush(){
+  if(!sbOn()) return Promise.resolve();
+  if(tun.sbPushP) return tun.sbPushP;
+  const q=sbQ(); if(!q.length) return Promise.resolve();
+  const L=logLoad(), rows=q.map(id=>L.find(e=>e.id===id)).filter(Boolean).map(e=>({id:e.id,started:new Date(e.started).toISOString(),updated:new Date(e.updated||e.started).toISOString(),deleted:!!e.deleted,device:e.device||null,data:e}));
+  if(!rows.length){ sbQSet([]); return Promise.resolve(); }
+  tun.sbPushing=true;
+  return tun.sbPushP=sbReq("wayunki_log?on_conflict=id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(rows)})
+    .then(()=>{ const left=sbQ().filter(id=>!q.includes(id)); sbQSet(left); tun.sbOK=Date.now(); tun.sbErr=null; })
+    .catch(err=>{ tun.sbErr=err.message||"offline"; })
+    .finally(()=>{ tun.sbPushing=false; tun.sbPushP=null; sbPaint(); });
+}
+function sbPull(){
+  if(!sbOn()) return Promise.resolve();
+  if(tun.sbPullP) return tun.sbPullP;
+  tun.sbPulling=true;
+  let since=""; try{ since=localStorage.getItem(SBT)||""; }catch(e){}
+  return tun.sbPullP=sbReq("wayunki_log?select=id,data,at&order=at.asc&limit=2000"+(since?"&at=gt."+encodeURIComponent(since):""),{method:"GET"})
+    .then(rows=>{
+      rows=rows||[]; if(!rows.length){ tun.sbOK=Date.now(); tun.sbErr=null; return; }
+      const L=logLoad(), q=sbQ(); let changed=false;
+      rows.forEach(r=>{ const d=r.data; if(!d||!d.id) return; const i=L.findIndex(e=>e.id===d.id);
+        if(i<0){ L.push(d); changed=true; }
+        else if(!q.includes(d.id)&&(d.updated||0)>(L[i].updated||0)){ L[i]=d; changed=true; } });   // a wayunki changed here and not yet sent wins
+      if(changed) logStore(L);
+      try{ localStorage.setItem(SBT,rows[rows.length-1].at); }catch(e){}
+      tun.sbOK=Date.now(); tun.sbErr=null;
+      if(changed&&curPageId()==="logCard") renderLog();
+    })
+    .catch(err=>{ tun.sbErr=err.message||"offline"; })
+    .finally(()=>{ tun.sbPulling=false; tun.sbPullP=null; sbPaint(); });
+}
+function sbSync(){ return sbPush().then(sbPull); }
+function sbPaint(){
+  const box=$("logSync"); if(!box) return;
+  const n=sbQ().length;
+  if(!sbOn()){ box.dataset.s=""; $("logSyncTxt").textContent="Kept on this phone only (the shared database isn't set up yet)"; return; }
+  if(tun.sbErr&&!navigator.onLine){ box.dataset.s="wait"; $("logSyncTxt").textContent="Offline · "+(n?n+" wayunki waiting to upload":"will sync when back online"); return; }
+  if(tun.sbErr){ box.dataset.s="err"; $("logSyncTxt").textContent="Can't reach the shared log ("+tun.sbErr+")"+(n?" · "+n+" waiting":"")+" · retrying"; return; }
+  if(n){ box.dataset.s="wait"; $("logSyncTxt").textContent="Uploading "+n+" wayunki…"; return; }
+  box.dataset.s=tun.sbOK?"ok":""; $("logSyncTxt").textContent=tun.sbOK?"Shared log · synced "+fmtDate(tun.sbOK).slice(11):"Shared log · connecting…";
+}
 function csvCell(v){ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
 function logCsv(){
-  const head=["Wayunki","Started","Last update","Label","Card","A ref (Hz)","Octave rule (¢)","Lock zone (¢)","Tolerance (¢)","Tube #","Note","Final Hz","Cents vs equal temperament","Target (¢)","Off target (¢)","In tolerance","Octave pair with","Octave gap (¢)","Octave locked","Rings averaged","Spread (¢)","Value changes (new ring > re-ring range)","First heard Hz","First heard, off target (¢)","Strikes heard","All heard Hz (in order)","Hz connections","Whole-chime score"];
+  const head=["Wayunki","Phone","Started","Last update","Label","Card","A ref (Hz)","Octave rule (¢)","Lock zone (¢)","Tolerance (¢)","Tube #","Note","Final Hz","Cents vs equal temperament","Target (¢)","Off target (¢)","In tolerance","Octave pair with","Octave gap (¢)","Octave locked","Rings averaged","Spread (¢)","Value changes (new ring > re-ring range)","First heard Hz","First heard, off target (¢)","Strikes heard","All heard Hz (in order)","Hz connections","Whole-chime score"];
   const rows=[head];
-  logLoad().sort((a,b)=>a.n-b.n).forEach(e=>e.tubes.forEach(t=>{
+  const LL=logLive(), NUM=logNums(LL);
+  LL.sort((a,b)=>NUM[a.id]-NUM[b.id]).forEach(e=>e.tubes.forEach(t=>{
     const heard=e.rings.filter(r=>r.m===t.m), first=heard.length?heard[0].f:null, tf=t.f/Math.pow(2,t.off/1200);
-    rows.push([e.n,fmtDate(e.started),fmtDate(e.updated||e.started),e.label||"",e.card||"",e.a4,e.octOff==null?"":e.octOff,e.lockTol,e.tol,t.num||"",t.note,t.f,t.cents,t.target,t.off,Math.abs(t.off)<=(e.tol||3)?"yes":"no",t.pair||"",t.gap==null?"":t.gap,t.pair?(t.locked?"yes":"no"):"",t.rings,t.spread,t.retunes,first==null?"":first,first==null?"":(1200*Math.log2(first/tf)).toFixed(2),heard.length,heard.map(r=>r.f).join(" | "),(t.links||[]).map(l=>l.n+(l.k?" (octave "+(l.k>0?"×":"÷")+Math.pow(2,Math.abs(l.k))+")":"")+" "+sgn(l.c,1)+"¢ ["+EVN[l.ev]+"]").join(" | "),e.chord?e.chord.score:""]);
+    rows.push([NUM[e.id],e.device||"",fmtDate(e.started),fmtDate(e.updated||e.started),e.label||"",e.card||"",e.a4,e.octOff==null?"":e.octOff,e.lockTol,e.tol,t.num||"",t.note,t.f,t.cents,t.target,t.off,Math.abs(t.off)<=(e.tol||3)?"yes":"no",t.pair||"",t.gap==null?"":t.gap,t.pair?(t.locked?"yes":"no"):"",t.rings,t.spread,t.retunes,first==null?"":first,first==null?"":(1200*Math.log2(first/tf)).toFixed(2),heard.length,heard.map(r=>r.f).join(" | "),(t.links||[]).map(l=>l.n+(l.k?" (octave "+(l.k>0?"×":"÷")+Math.pow(2,Math.abs(l.k))+")":"")+" "+sgn(l.c,1)+"¢ ["+EVN[l.ev]+"]").join(" | "),e.chord?e.chord.score:""]);
   }));
   return "﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
 }
@@ -2511,7 +2581,7 @@ $("hzOctChips").addEventListener("click",e=>{ const b=e.target.closest("[data-v]
 $("hzGrpChips").addEventListener("click",e=>{ const b=e.target.closest("[data-v]"); if(!b) return; S.hzGrp[b.dataset.v]=S.hzGrp[b.dataset.v]?0:1; renderHz(); if(tun.hzF) paintHzMatch(tun.hzF); save(); });
 $("pageDots").innerHTML=PAGES.map((p,i)=>'<button type="button" data-p="'+i+'" aria-label="'+p[1]+'"><i></i>'+p[1]+'</button>').join("");
 function curPage(){ const v=$("tunerView"); return Math.round(v.scrollLeft/Math.max(1,v.clientWidth+16)); }
-function markPage(){ const i=curPage(); document.querySelectorAll("#pageDots [data-p]").forEach(b=>b.setAttribute("aria-current",String(+b.dataset.p===i))); if(PAGES[i]&&PAGES[i][0]==="focusCard") requestAnimationFrame(drawSpectrum); if(PAGES[i]&&PAGES[i][0]==="hzCard") paintHzNow(); if(PAGES[i]&&PAGES[i][0]==="logCard") renderLog(); }
+function markPage(){ const i=curPage(); document.querySelectorAll("#pageDots [data-p]").forEach(b=>b.setAttribute("aria-current",String(+b.dataset.p===i))); if(PAGES[i]&&PAGES[i][0]==="focusCard") requestAnimationFrame(drawSpectrum); if(PAGES[i]&&PAGES[i][0]==="hzCard") paintHzNow(); if(PAGES[i]&&PAGES[i][0]==="logCard"){ renderLog(); sbSync(); } }
 $("tunerView").addEventListener("scroll",()=>{ cancelAnimationFrame(tun.pgRaf); tun.pgRaf=requestAnimationFrame(markPage); },{passive:true});
 $("pageDots").addEventListener("click",e=>{ const b=e.target.closest("[data-p]"); if(!b) return; const v=$("tunerView"); v.scrollTo({left:+b.dataset.p*(v.clientWidth+16),behavior:"smooth"}); });
 window.addEventListener("resize",()=>{ const v=$("tunerView"); const i=tun.lastPage||0; v.scrollLeft=i*(v.clientWidth+16); });
@@ -2534,18 +2604,23 @@ window.addEventListener("resize",()=>{ const v=$("tunerView"); const i=tun.lastP
   $("fsHelpOk").addEventListener("click",()=>{ $("fsHelp").hidden=true; });
   $("fsHelp").addEventListener("click",e=>{ if(e.target.id==="fsHelp") $("fsHelp").hidden=true; });
 })();
-$("logCsv").addEventListener("click",()=>{ if(!logLoad().length){ setMsg("The log is empty."); return; } giveFile("soft-pulse-tuning-log-"+fmtDate(Date.now()).slice(0,10)+".csv",logCsv(),"text/csv;charset=utf-8"); });
+$("logCsv").addEventListener("click",()=>{ if(!logLive().length){ setMsg("The log is empty."); return; } giveFile("soft-pulse-tuning-log-"+fmtDate(Date.now()).slice(0,10)+".csv",logCsv(),"text/csv;charset=utf-8"); });
 $("logBackup").addEventListener("click",()=>{ giveFile("soft-pulse-backup-"+fmtDate(Date.now()).slice(0,10)+".json",JSON.stringify({app:"Soft Pulse",kind:"backup",version:1,exported:new Date().toISOString(),log:logLoad(),sets:loadSets()},null,1),"application/json"); });
 $("logRestore").addEventListener("change",e=>{
   const file=e.target.files&&e.target.files[0]; e.target.value=""; if(!file) return;
   file.text().then(t=>{ const o=JSON.parse(t); if(!o||!Array.isArray(o.log)) throw 0;
-    const L=logLoad(), have=new Set(L.map(x=>x.id)); let k=0; o.log.forEach(x=>{ if(x&&x.id&&!have.has(x.id)){ L.push(x); k++; } });
+    const L=logLoad(), have=new Set(L.map(x=>x.id)); let k=0; o.log.forEach(x=>{ if(x&&x.id&&!have.has(x.id)){ L.push(x); k++; sbQueue(x.id); } });
     logStore(L); if(o.sets&&typeof o.sets==="object"){ const st=loadSets(); Object.keys(o.sets).forEach(n=>{ if(!st[n]) st[n]=o.sets[n]; }); storeSets(st); renderSets(); }
     renderLog(); setMsg("Restored "+k+" wayunki"+(k===1?"":"s")+" from the backup.");
   }).catch(()=>setMsg("That file is not a Soft Pulse backup."));
 });
-$("logClear").addEventListener("click",()=>{ if(!logLoad().length) return; if(!confirm("Delete the whole tuning log on this phone? Export it first if you want to keep it.")) return; logStore([]); S.logId=null; save(); renderLog(); setMsg("Tuning log cleared."); });
-$("logList").addEventListener("click",e=>{ const b=e.target.closest("[data-logdel]"); if(!b) return; const L=logLoad(), x=L.find(y=>y.id===b.dataset.logdel); if(!x||!confirm("Delete wayunki #"+x.n+" from the log?")) return; logStore(L.filter(y=>y.id!==x.id)); if(S.logId===x.id) S.logId=null; save(); renderLog(); });
+$("logClear").addEventListener("click",()=>{ const L=logLoad(), live=L.filter(e=>!e.deleted); if(!live.length) return;
+  if(!confirm("Remove all "+live.length+" wayunki from the log"+(sbOn()?" on every phone":"")+"? Export it first if you want a copy.")) return;
+  const now=Date.now(); live.forEach(e=>{ e.deleted=true; e.updated=now; }); logStore(L); live.forEach(e=>sbQueue(e.id)); S.logId=null; save(); renderLog(); setMsg("Tuning log cleared."); });
+$("logList").addEventListener("click",e=>{ const b=e.target.closest("[data-logdel]"); if(!b) return; const L=logLoad(), x=L.find(y=>y.id===b.dataset.logdel), NUM=logNums(L.filter(y=>!y.deleted));
+  if(!x||!confirm("Remove wayunki #"+NUM[x.id]+" ("+(x.label||x.card||"free set")+") from the log"+(sbOn()?" on every phone":"")+"?")) return;
+  x.deleted=true; x.updated=Date.now(); logStore(L); sbQueue(x.id); if(S.logId===x.id) S.logId=null; save(); renderLog(); });
+$("logDev").addEventListener("change",()=>{ S.devName=$("logDev").value.trim().slice(0,40); save(); setMsg(S.devName?"This phone is now “"+S.devName+"” in the log.":"Phone name removed."); });
 $("logCopyBtn").addEventListener("click",()=>{ const t=$("logCopyText"); t.select(); try{ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t.value):Promise.reject()).catch(()=>document.execCommand("copy")); }catch(_){ try{document.execCommand("copy");}catch(__){} } setMsg("Copied."); });
 $("logCopyClose").addEventListener("click",()=>{ $("logCopy").hidden=true; });
 $("hzMatch").addEventListener("click",()=>{ const v=$("tunerView"), i=PAGES.findIndex(p=>p[0]==="hzCard"); v.scrollTo({left:i*(v.clientWidth+16),behavior:"smooth"}); });
@@ -2603,6 +2678,8 @@ holdDrag($("lvlBar"),{px:6,step:1,
 renderAll();
 renderHz();
 renderLog();
+setTimeout(sbSync,1500); setInterval(()=>{ if(!document.hidden) sbSync(); },60000);
+window.addEventListener("online",()=>sbSync()); document.addEventListener("visibilitychange",()=>{ if(!document.hidden) sbSync(); });
 renderTuner();
 applyTheme();
 setTab(S.tab);
