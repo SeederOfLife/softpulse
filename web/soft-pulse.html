@@ -373,6 +373,26 @@ html.isfs .fsbtn .fs-out{display:block}
 .fshelpcard b:first-child{font:800 18px/1.1 var(--display);text-transform:uppercase;letter-spacing:.04em}
 .fshelpcard p,.fshelpcard ol{margin:0}
 .fshelpcard ol{padding-left:20px;display:grid;gap:4px}
+/* ===== Tuning log ===== */
+.logbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.logbtns button,.logbtns label{min-height:44px;font-size:13.5px}
+.logstats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.logstats div{border:1px solid var(--line);border-radius:12px;padding:8px 10px;display:grid;gap:2px}
+.logstats b{font:800 22px/1 var(--display);font-variant-numeric:tabular-nums}
+.logstats span{font-size:11.5px;color:var(--muted)}
+.logitem{border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:grid;gap:6px;position:relative}
+.logitem.lnow{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.logitem h3{margin:0;font:800 15px/1.15 var(--display);letter-spacing:.04em;text-transform:uppercase;padding-right:30px}
+.logitem .lmeta{font-size:12px;color:var(--muted)}
+.logitem .lq{font-size:12.5px}
+.logtubes{display:flex;flex-wrap:wrap;gap:5px}
+.logtubes span{border:1px solid var(--line);border-radius:8px;padding:3px 7px;font:600 12px var(--mono);font-variant-numeric:tabular-nums}
+.logtubes span.ok{border-color:var(--good);color:var(--good)}
+.logtubes span.near{border-color:var(--near);color:var(--near)}
+.logtubes span.far{border-color:var(--bad);color:var(--bad)}
+.logitem .ldel{position:absolute;top:6px;right:6px;width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);padding:0;font-size:16px}
+.logcopy{position:fixed;left:16px;right:16px;top:50%;transform:translateY(-50%);z-index:81;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:8px;max-width:560px;margin:0 auto;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.logcopy textarea{width:100%;height:40vh;font:12px var(--mono);border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);box-sizing:border-box}
 /* ===== Frequency map ===== */
 .tstatus{min-width:0}
 .hzmatch{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:62%;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer}
@@ -533,6 +553,15 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
 @media (orientation:landscape) and (max-height:540px) and (max-width:760px){
   html[data-tab="tuner"] .pagedots button:not([aria-current="true"]){font-size:0;gap:0}
 }
+@media (max-width:460px){
+  html[data-tab="tuner"] .pagedots{gap:0}
+  html[data-tab="tuner"] .pagedots button{padding:4px 4px;font-size:10px;letter-spacing:.03em;gap:4px}
+  html[data-tab="tuner"] .pagedots button i{width:6px;height:6px}
+  html[data-tab="tuner"] .pagedots button[aria-current="true"] i{width:14px}
+}
+@media (max-width:370px){
+  html[data-tab="tuner"] .pagedots button{padding:4px 3px;font-size:9px;letter-spacing:.01em}
+}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -550,6 +579,12 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
       <button type="button" class="themebtn" id="themeBtn" aria-label="Switch to night"></button>
     </div>
   </header>
+  <div class="logcopy" id="logCopy" hidden role="dialog" aria-label="Copy the file">
+    <b>Copy this and paste it into a file</b>
+    <p class="note-line">This app can't save files directly. Copy the text and paste it into a note, an email or a spreadsheet.</p>
+    <textarea id="logCopyText" readonly></textarea>
+    <div class="logbtns"><button type="button" class="play" id="logCopyBtn">Copy</button><button type="button" class="ghost" id="logCopyClose">Close</button></div>
+  </div>
   <div class="fshelp" id="fsHelp" hidden role="dialog" aria-labelledby="fsHelpT">
     <div class="fshelpcard">
       <b id="fsHelpT">Full screen on iPhone</b>
@@ -736,6 +771,19 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
         <h2>Saved sets</h2>
         <div class="field" id="setListField" style="display:grid"><span class="lab">Saved sets</span><div class="chips" id="setList"></div><div class="setactions"><button type="button" id="delSet" hidden>Delete this saved set</button></div></div>
         <p class="note-line" id="setsEmpty">Sets you save with “Save set” appear here. Tap one to load it.</p>
+      </section>
+
+      <section class="card" id="logCard" aria-label="Tuning log">
+        <h2>Tuning log</h2>
+        <p class="note-line">Every wayunki you tune is saved here by itself, after every ring: the card, every frequency heard while tuning each tube, the final value, its target, octave locks, Hz-map connections and the whole-chime score. Reset chimes starts the next wayunki. The log is kept on this phone and browser (a private window forgets it), so export it now and then.</p>
+        <div class="logstats" id="logStats"></div>
+        <div class="logbtns">
+          <button type="button" class="play" id="logCsv">Export spreadsheet</button>
+          <button type="button" class="ghost" id="logBackup">Save backup</button>
+          <label class="ghost filebtn" style="display:grid;place-items:center">Restore backup<input type="file" id="logRestore" accept=".json,application/json" hidden></label>
+          <button type="button" class="ghost" id="logClear">Clear log</button>
+        </div>
+        <div id="logList" style="display:grid;gap:8px"></div>
       </section>
 
       <section class="card" id="hzCard" aria-label="Frequency map">
@@ -1757,6 +1805,7 @@ function finishChord(timeout){
   const missing=tubes.filter(t=>!t.heard).map(t=>noteLabel(t.m));
   $("chNote").textContent=(missing.length?"Not heard in the mix: "+missing.join(", ")+". ":"")+"Cents are measured with all tubes ringing together; octave pairs are judged by their gap.";
   try{navigator.vibrate&&navigator.vibrate(grade==="ex"?[40,60,40,60,40]:[60]);}catch(_){}
+  logSave(e=>{ e.chord={score:score,at:Date.now(),tubes:tubes.map(t=>({note:noteLabel(t.m),f:t.f?+t.f.toFixed(3):null,dev:t.dev!=null?+t.dev.toFixed(2):null}))}; });
 }
 const LOCKSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>';
 $("chordBtn").addEventListener("click",()=>{ if(tun.chord){ tun.chord=null; $("chordBtn").classList.remove("listening"); $("chordBtn").textContent="Check chime"; return; } if(!tun.on){ setMsg("The microphone isn't listening yet."); return; } if(chordTargets().length<3){ setMsg("Strike at least three chimes first so the app knows the set."); return; } startChord(performance.now(),false); });
@@ -1861,15 +1910,79 @@ function recordCapture(f){
     c={f:f,caps:[],grp:[]}; S.chimes.push(c);
   }
   // same sound as before → refine the average; clearly different (after grinding) → start again from this ring
-  if(c.grp.length && Math.abs(1200*Math.log2(f/avg(c.grp)))>S.grpTol) c.grp=[];
+  if(c.grp.length && Math.abs(1200*Math.log2(f/avg(c.grp)))>S.grpTol){ c.grp=[]; c.retunes=(c.retunes||0)+1; }
   c.grp.push(f); while(c.grp.length>S.conf) c.grp.shift();
   c.f=Math.round(avg(c.grp)*1000)/1000;
   c.caps.unshift(f); if(c.caps.length>6) c.caps.pop();
   tun.lastChime=c; tun.flash=nm; S.loaded=""; renderChimes(); save();
   // the finished ring is the most exact value: the big number, the gap meter and the tile all show it
   if(S.dispNR){ tun.last=c.f; tun.lastT=performance.now(); showReading(c.f,true,false,true); }
+  logRing(f);
 }
 function renderLast(){}
+/* ---------- Tuning log: every wayunki and every frequency heard while tuning it ---------- */
+const LOGKEY="softpulse.log";
+function logLoad(){ try{ const a=JSON.parse(localStorage.getItem(LOGKEY)||"[]"); return Array.isArray(a)?a:[]; }catch(e){ return []; } }
+function logStore(a){ try{ localStorage.setItem(LOGKEY,JSON.stringify(a)); return true; }catch(e){ return false; } }
+function logEntry(create){
+  const L=logLoad(); let e=S.logId&&L.find(x=>x.id===S.logId);
+  if(!e&&create){ const n=L.reduce((m,x)=>Math.max(m,x.n||0),0)+1; e={id:"w"+Date.now().toString(36)+Math.random().toString(36).slice(2,6),n:n,started:Date.now(),rings:[],tubes:[]}; L.push(e); S.logId=e.id; save(); }
+  return {L:L,e:e};
+}
+function tubeNum(ap,m){ if(ap&&ap.iv&&ap.root!=null){ const i=ap.iv.indexOf(m-ap.root); if(i>=0) return i+1; } return null; }
+function logFill(e){
+  const ap=activePattern();
+  e.updated=Date.now(); e.card=ap&&ap.card&&ap.root!=null?ap.name:(ap&&ap.name&&ap.root!=null?ap.name+" on "+noteLabel(ap.root):null);
+  e.a4=S.a4; e.octOff=S.octPair?S.octOff:null; e.lockTol=S.lockTol; e.tol=S.tol;
+  e.tubes=S.chimes.slice().sort((a,b)=>a.f-b.f).map(c=>{
+    const m=midiOf(c.f), TG=targetFor(m), low=S.octPair&&S.chimes.find(x=>midiOf(x.f)===m-12);
+    const gap=low?1200*Math.log2(c.f/(2*low.f)):null, g=c.grp||[c.f];
+    return {m:m,note:noteLabel(m),num:tubeNum(ap,m),f:+c.f.toFixed(3),cents:+centsOf(c.f).toFixed(2),target:+(1200*Math.log2(TG.f/mf(m))).toFixed(2),
+      off:+(1200*Math.log2(c.f/TG.f)).toFixed(2),pair:low?noteLabel(m-12):null,gap:gap!=null?+gap.toFixed(2):null,locked:gap!=null&&Math.abs(gap-S.octOff)<=S.lockTol,
+      rings:g.length,spread:g.length>1?+(1200*Math.log2(Math.max.apply(null,g)/Math.min.apply(null,g))/2).toFixed(2):0,retunes:c.retunes||0,
+      links:hzMatches(c.f,false).filter(x=>!x.it.r).slice(0,3).map(x=>({n:x.it.n,ev:x.it.ev,c:+x.c.toFixed(1),k:x.k}))};
+  });
+}
+function logSave(fn){ const o=logEntry(S.chimes.length>0); if(!o.e) return; if(fn) fn(o.e); logFill(o.e); logStore(o.L); if(curPageId()==="logCard") renderLog(); }
+function logRing(f){ logSave(e=>{ e.rings.push({t:Date.now(),f:+f.toFixed(3),m:midiOf(f)}); }); }
+function logNew(){ S.logId=null; save(); if(curPageId()==="logCard") renderLog(); }
+function fmtDate(t){ const d=new Date(t), z=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes()); }
+function logQuality(e){
+  const n=e.tubes.length, ok=e.tubes.filter(t=>Math.abs(t.off)<=(e.tol||3)).length, pairs=e.tubes.filter(t=>t.pair), lk=pairs.filter(t=>t.locked).length;
+  return {n:n,ok:ok,pairs:pairs.length,lk:lk};
+}
+function renderLog(){
+  if(!$("logList")) return;
+  const L=logLoad().slice().sort((a,b)=>(b.updated||b.started)-(a.updated||a.started));
+  const tubes=L.reduce((a,e)=>a+e.tubes.length,0), ok=L.reduce((a,e)=>a+logQuality(e).ok,0);
+  $("logStats").innerHTML='<div><b>'+L.length+'</b><span>wayunki</span></div><div><b>'+tubes+'</b><span>tubes</span></div><div><b>'+(tubes?Math.round(100*ok/tubes)+"%":"–")+'</b><span>in tune</span></div>';
+  $("logList").innerHTML=L.length?L.map(e=>{
+    const q=logQuality(e), live=e.id===S.logId;
+    return '<div class="logitem'+(live?" lnow":"")+'"><button type="button" class="ldel" data-logdel="'+e.id+'" aria-label="Delete wayunki '+e.n+'">×</button>'+
+      '<h3>#'+e.n+' · '+(e.label||e.card||"Free set")+(live?' · tuning now':'')+'</h3>'+
+      '<div class="lmeta">'+fmtDate(e.started)+(e.updated&&fmtDate(e.updated)!==fmtDate(e.started)?" → "+fmtDate(e.updated).slice(11):"")+' · A = '+e.a4+(e.label&&e.card?' · '+e.card:'')+' · '+e.rings.length+' strike'+(e.rings.length===1?"":"s")+' heard</div>'+
+      '<div class="lq">'+q.n+' of 6 tubes · '+q.ok+' in tune (±'+(e.tol||3)+' ¢)'+(q.pairs?' · '+q.lk+' of '+q.pairs+' octave'+(q.pairs>1?"s":"")+' locked':'')+(e.chord?' · whole-chime check '+e.chord.score:'')+'</div>'+
+      '<div class="logtubes">'+e.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+(t.retunes?' ·'+t.retunes+'×':'')+'</span>').join("")+'</div></div>';
+  }).join(""):'<p class="note-line">Nothing yet. Strike a chime on the Tuner page and it appears here.</p>';
+}
+function csvCell(v){ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function logCsv(){
+  const head=["Wayunki","Started","Last update","Label","Card","A ref (Hz)","Octave rule (¢)","Lock zone (¢)","Tolerance (¢)","Tube #","Note","Final Hz","Cents vs equal temperament","Target (¢)","Off target (¢)","In tolerance","Octave pair with","Octave gap (¢)","Octave locked","Rings averaged","Spread (¢)","Value changes (new ring > re-ring range)","First heard Hz","First heard, off target (¢)","Strikes heard","All heard Hz (in order)","Hz connections","Whole-chime score"];
+  const rows=[head];
+  logLoad().sort((a,b)=>a.n-b.n).forEach(e=>e.tubes.forEach(t=>{
+    const heard=e.rings.filter(r=>r.m===t.m), first=heard.length?heard[0].f:null, tf=t.f/Math.pow(2,t.off/1200);
+    rows.push([e.n,fmtDate(e.started),fmtDate(e.updated||e.started),e.label||"",e.card||"",e.a4,e.octOff==null?"":e.octOff,e.lockTol,e.tol,t.num||"",t.note,t.f,t.cents,t.target,t.off,Math.abs(t.off)<=(e.tol||3)?"yes":"no",t.pair||"",t.gap==null?"":t.gap,t.pair?(t.locked?"yes":"no"):"",t.rings,t.spread,t.retunes,first==null?"":first,first==null?"":(1200*Math.log2(first/tf)).toFixed(2),heard.length,heard.map(r=>r.f).join(" | "),(t.links||[]).map(l=>l.n+(l.k?" (octave "+(l.k>0?"×":"÷")+Math.pow(2,Math.abs(l.k))+")":"")+" "+sgn(l.c,1)+"¢ ["+EVN[l.ev]+"]").join(" | "),e.chord?e.chord.score:""]);
+  }));
+  return "﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+}
+function giveFile(name,text,mime){
+  const inApp=/; wv\)/.test(navigator.userAgent);
+  if(!inApp){
+    try{ const url=URL.createObjectURL(new Blob([text],{type:mime})), a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000); setMsg("Saved “"+name+"” to your downloads."); return; }catch(e){}
+  }
+  $("logCopyText").value=text; $("logCopy").hidden=false;
+}
+
 function rootName(list){ if(!list.length) return ""; const lo=list.reduce((a,b)=>a.f<b.f?a:b); return noteLabel(midiOf(lo.f)); }
 /* Patterns: interval shapes of a six-chime set, in semitones above the root */
 /* The workshop's own chime cards. Card number 1 = lowest tube (root) … 6 = highest.
@@ -2016,7 +2129,7 @@ function renderSets(){ renderPatSel(); if($("setsEmpty")) $("setsEmpty").hidden=
 }
 $("cgrid").addEventListener("click",e=>{
   const b=e.target.closest("[data-del]"); if(!b) return; const nm=+b.dataset.del;
-  S.chimes=S.chimes.filter(c=>midiOf(c.f)!==nm); renderChimes(); save();
+  S.chimes=S.chimes.filter(c=>midiOf(c.f)!==nm); renderChimes(); save(); logSave();
 });
 /* fresh start of the listening engine: noise memory, ring reading, big number, Hz match (settings are kept) */
 function resetHearing(){
@@ -2025,20 +2138,20 @@ function resetHearing(){
     onset:null,lastClearT:0,ema:null,flowV:null,flowT:null,hzF:null,lockOn:false,lockSince:null,numAcc:[]});
   clearReading();
 }
-$("chReset").addEventListener("click",()=>{ tun.lastChime=null; tun.pend=[]; tun.rb=[]; tun.lock=null; S.chimes=[]; S.loaded=""; tun.caps=[]; resetHearing(); renderLast(false); renderChimes(); renderSets(); setMsg("Ready. Strike the six chimes one by one."); save(); });
+$("chReset").addEventListener("click",()=>{ if(S.chimes.length) logSave(); logNew(); tun.lastChime=null; tun.pend=[]; tun.rb=[]; tun.lock=null; S.chimes=[]; S.loaded=""; tun.caps=[]; resetHearing(); renderLast(false); renderChimes(); renderSets(); setMsg("Ready. Strike the six chimes one by one."); save(); });
 $("chSave").addEventListener("click",()=>{
   if(!S.chimes.length) return;
   const ap=activePattern(), sets=loadSets(), base=(ap&&ap.card&&ap.root!=null?ap.name:rootName(S.chimes))+(Math.abs(S.a4-440)>0.001?" @"+(Math.round(S.a4*100)/100):"");
   let name=base, k=2; while(sets[name]) name=base+" ("+(k++)+")";
   const lo=S.chimes.reduce((a,b)=>a.f<b.f?a:b);
   sets[name]={a4:S.a4,root:lo.f,saved:Date.now(),chimes:JSON.parse(JSON.stringify(S.chimes))};
-  S.loaded=name;
+  S.loaded=name; logSave(e=>{ e.label=name; });
   setMsg(storeSets(sets)?"Saved as “"+name+"”.":"Could not save on this device.");
   renderSets(); save();
 });
 $("setList").addEventListener("click",e=>{
   const b=e.target.closest("[data-v]"); if(!b) return; const x=loadSets()[b.dataset.v]; if(!x) return;
-  S.chimes=JSON.parse(JSON.stringify(x.chimes||[])).slice(0,6); S.loaded=b.dataset.v;
+  S.chimes=JSON.parse(JSON.stringify(x.chimes||[])).slice(0,6); S.loaded=b.dataset.v; logNew();
   if(x.a4&&Math.abs(x.a4-S.a4)>0.001) setA4(x.a4);
   setMsg("Showing “"+b.dataset.v+"”. New rings update it; press Reset chimes to start fresh.");
   renderChimes(); renderSets(); save();
@@ -2257,7 +2370,7 @@ function setTab(t){
   save();
 }
 document.querySelector(".tabs").addEventListener("click",e=>{const b=e.target.closest("[data-tab]"); if(b) setTab(b.dataset.tab);});
-const PAGES=[["tstage","Tuner"],["focusCard","Focus"],["nrCard","Noise"],["refCard","Reference"],["setsCard","Sets"],["hzCard","Hz"]];
+const PAGES=[["tstage","Tuner"],["focusCard","Focus"],["nrCard","Noise"],["refCard","Reference"],["setsCard","Sets"],["logCard","Log"],["hzCard","Hz"]];
 /* ---------- Frequency map: what people connect frequencies with ----------
    ev: M measured physics / standard · S scientific study (often small or early) · H historical tuning standard
        C calculated by a theory · B belief or tradition, no scientific support · X claim, not verified */
@@ -2397,7 +2510,7 @@ $("hzOctChips").addEventListener("click",e=>{ const b=e.target.closest("[data-v]
 $("hzGrpChips").addEventListener("click",e=>{ const b=e.target.closest("[data-v]"); if(!b) return; S.hzGrp[b.dataset.v]=S.hzGrp[b.dataset.v]?0:1; renderHz(); if(tun.hzF) paintHzMatch(tun.hzF); save(); });
 $("pageDots").innerHTML=PAGES.map((p,i)=>'<button type="button" data-p="'+i+'" aria-label="'+p[1]+'"><i></i>'+p[1]+'</button>').join("");
 function curPage(){ const v=$("tunerView"); return Math.round(v.scrollLeft/Math.max(1,v.clientWidth+16)); }
-function markPage(){ const i=curPage(); document.querySelectorAll("#pageDots [data-p]").forEach(b=>b.setAttribute("aria-current",String(+b.dataset.p===i))); if(PAGES[i]&&PAGES[i][0]==="focusCard") requestAnimationFrame(drawSpectrum); if(PAGES[i]&&PAGES[i][0]==="hzCard") paintHzNow(); }
+function markPage(){ const i=curPage(); document.querySelectorAll("#pageDots [data-p]").forEach(b=>b.setAttribute("aria-current",String(+b.dataset.p===i))); if(PAGES[i]&&PAGES[i][0]==="focusCard") requestAnimationFrame(drawSpectrum); if(PAGES[i]&&PAGES[i][0]==="hzCard") paintHzNow(); if(PAGES[i]&&PAGES[i][0]==="logCard") renderLog(); }
 $("tunerView").addEventListener("scroll",()=>{ cancelAnimationFrame(tun.pgRaf); tun.pgRaf=requestAnimationFrame(markPage); },{passive:true});
 $("pageDots").addEventListener("click",e=>{ const b=e.target.closest("[data-p]"); if(!b) return; const v=$("tunerView"); v.scrollTo({left:+b.dataset.p*(v.clientWidth+16),behavior:"smooth"}); });
 window.addEventListener("resize",()=>{ const v=$("tunerView"); const i=tun.lastPage||0; v.scrollLeft=i*(v.clientWidth+16); });
@@ -2420,6 +2533,20 @@ window.addEventListener("resize",()=>{ const v=$("tunerView"); const i=tun.lastP
   $("fsHelpOk").addEventListener("click",()=>{ $("fsHelp").hidden=true; });
   $("fsHelp").addEventListener("click",e=>{ if(e.target.id==="fsHelp") $("fsHelp").hidden=true; });
 })();
+$("logCsv").addEventListener("click",()=>{ if(!logLoad().length){ setMsg("The log is empty."); return; } giveFile("soft-pulse-tuning-log-"+fmtDate(Date.now()).slice(0,10)+".csv",logCsv(),"text/csv;charset=utf-8"); });
+$("logBackup").addEventListener("click",()=>{ giveFile("soft-pulse-backup-"+fmtDate(Date.now()).slice(0,10)+".json",JSON.stringify({app:"Soft Pulse",kind:"backup",version:1,exported:new Date().toISOString(),log:logLoad(),sets:loadSets()},null,1),"application/json"); });
+$("logRestore").addEventListener("change",e=>{
+  const file=e.target.files&&e.target.files[0]; e.target.value=""; if(!file) return;
+  file.text().then(t=>{ const o=JSON.parse(t); if(!o||!Array.isArray(o.log)) throw 0;
+    const L=logLoad(), have=new Set(L.map(x=>x.id)); let k=0; o.log.forEach(x=>{ if(x&&x.id&&!have.has(x.id)){ L.push(x); k++; } });
+    logStore(L); if(o.sets&&typeof o.sets==="object"){ const st=loadSets(); Object.keys(o.sets).forEach(n=>{ if(!st[n]) st[n]=o.sets[n]; }); storeSets(st); renderSets(); }
+    renderLog(); setMsg("Restored "+k+" wayunki"+(k===1?"":"s")+" from the backup.");
+  }).catch(()=>setMsg("That file is not a Soft Pulse backup."));
+});
+$("logClear").addEventListener("click",()=>{ if(!logLoad().length) return; if(!confirm("Delete the whole tuning log on this phone? Export it first if you want to keep it.")) return; logStore([]); S.logId=null; save(); renderLog(); setMsg("Tuning log cleared."); });
+$("logList").addEventListener("click",e=>{ const b=e.target.closest("[data-logdel]"); if(!b) return; const L=logLoad(), x=L.find(y=>y.id===b.dataset.logdel); if(!x||!confirm("Delete wayunki #"+x.n+" from the log?")) return; logStore(L.filter(y=>y.id!==x.id)); if(S.logId===x.id) S.logId=null; save(); renderLog(); });
+$("logCopyBtn").addEventListener("click",()=>{ const t=$("logCopyText"); t.select(); try{ (navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(t.value):Promise.reject()).catch(()=>document.execCommand("copy")); }catch(_){ try{document.execCommand("copy");}catch(__){} } setMsg("Copied."); });
+$("logCopyClose").addEventListener("click",()=>{ $("logCopy").hidden=true; });
 $("hzMatch").addEventListener("click",()=>{ const v=$("tunerView"), i=PAGES.findIndex(p=>p[0]==="hzCard"); v.scrollTo({left:i*(v.clientWidth+16),behavior:"smooth"}); });
 $("tunerView").addEventListener("scrollend",()=>{ tun.lastPage=curPage(); });
 const SUN='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
@@ -2474,6 +2601,7 @@ holdDrag($("lvlBar"),{px:6,step:1,
   label:()=>S.nr==="manual"?"Manual noise trigger · up ignores more noise":"Auto: trigger above room noise · up ignores more"});
 renderAll();
 renderHz();
+renderLog();
 renderTuner();
 applyTheme();
 setTab(S.tab);
