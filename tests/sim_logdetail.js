@@ -1,0 +1,23 @@
+const {JSDOM}=require('jsdom'); const fs=require('fs'); const errs=[];
+const dom=new JSDOM(fs.readFileSync('sim_new.html','utf8'),{url:'https://example.test/',runScripts:'dangerously',pretendToBeVisual:true,beforeParse(w){w.HTMLCanvasElement.prototype.getContext=()=>new Proxy({},{get:(t,k)=>k==='measureText'?()=>({width:10}):()=>{},set:()=>true}); w.addEventListener('error',e=>errs.push(e.message)); w.navigator.vibrate=()=>true; w.confirm=()=>true;}});
+const w=dom.window,d=w.document; const sr=48000;
+const rd=f=>{const b=fs.readFileSync(f); return new Float32Array(b.buffer.slice(b.byteOffset,b.byteOffset+b.length));};
+setTimeout(()=>{try{ d.getElementById('tabTuner').click(); const T=w.__t,S=T.S; S.chimes=[]; S.pat='auto';
+  let clock=0; w.performance.now=()=>clock;
+  const play=(file)=>{ const sig=rd(file); let cur=0; const fill=(a,e)=>{for(let i=0;i<a.length;i++){const j=e-a.length+i; a[i]=j>=0&&j<sig.length?sig[j]:0;}};
+    T.tun.an={getFloatTimeDomainData:a=>fill(a,cur)}; T.tun.an2={getFloatTimeDomainData:a=>fill(a,cur)}; T.tun.buf=new Float32Array(8192); T.tun.buf2=new Float32Array(16384); T.setCtx({sampleRate:sr,state:'running'});
+    for(let t=0.05;t<sig.length/sr;t+=0.045){ cur=Math.round(t*sr); clock+=45; T.analyse(); } };
+  play('/tmp/apkb/rec/chimes/F_minor.f32'); d.getElementById('chReset').click(); T.renderLog();
+  d.querySelector('#logList [data-logopen] h3').click();
+  const D=d.getElementById('logDetail');
+  console.log('detail open:',!D.hidden,'| title:',d.getElementById('ldTitle').textContent);
+  console.log('meta:',[...d.querySelectorAll('.ldmeta div')].map(x=>x.querySelector('span').textContent+'='+x.querySelector('b').textContent).join(' · '));
+  const first=d.querySelector('.ldtube');
+  console.log('tube cards:',d.querySelectorAll('.ldtube').length,'| sparklines:',d.querySelectorAll('.ldspark').length);
+  console.log('first tube:',first.querySelector('.ldtop').textContent,'|',first.querySelector('.ldfacts').textContent);
+  console.log('  heard:',first.querySelector('.ldheard').textContent.slice(0,220));
+  console.log('  links:',[...first.querySelectorAll('.ldlinks div')].map(x=>x.textContent).join(' || '));
+  fs.writeFileSync('/tmp/claude-0/-home-claude/abfd93d0-6377-5006-8a45-6aed155f0f44/scratchpad/seedlog.json',JSON.stringify(T.logLoad())); d.getElementById('ldBack').click(); console.log('back closes:',D.hidden);
+  // delete button on the list must not open the detail
+  d.querySelector('#logList [data-logdel]').click(); console.log('after × on list: detail hidden',D.hidden,'| log',T.logLive().length);
+}catch(e){errs.push('TEST '+e.stack)} console.log('errors:',errs.length?errs.slice(0,3):'none'); process.exit(0);},300);

@@ -400,6 +400,44 @@ html.isfs .fsbtn .fs-out{display:block}
 .logsync[data-s="err"] i{background:var(--bad)}
 .logdev{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
 .logdev input{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px 10px;font:inherit;font-size:14px}
+.logitem[data-logopen]{cursor:pointer}
+.logitem .lopen{font-size:12px;color:var(--accent);font-weight:700}
+.logdetail{position:fixed;top:0;right:0;bottom:0;left:0;inset:0;z-index:76;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ldpanel{max-width:760px;margin:0 auto;padding:12px 16px 40px;padding-left:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:12px}
+.ldhead{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;align-items:center;gap:10px;padding:8px 0}
+.ldhead h2{margin:0;font:800 20px/1.1 var(--display);letter-spacing:.04em;text-transform:uppercase;min-width:0;flex:1}
+.ldhead button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:999px;padding:8px 14px;font-weight:700;font-size:14px;flex:none}
+.ldmeta{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.ldmeta div{border:1px solid var(--line);border-radius:10px;padding:7px 10px;display:grid;gap:1px;background:var(--surface)}
+.ldmeta span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.ldmeta b{font-size:14px;font-variant-numeric:tabular-nums}
+.ldtube{border:1px solid var(--line);border-radius:14px;background:var(--surface);padding:12px;display:grid;gap:8px}
+.ldtube.ok{border-color:color-mix(in srgb,var(--good) 55%,var(--line))}
+.ldtube.near{border-color:color-mix(in srgb,var(--near) 60%,var(--line))}
+.ldtube.far{border-color:color-mix(in srgb,var(--bad) 60%,var(--line))}
+.ldtop{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.ldtop b{font:800 28px/1 var(--display)}
+.ldtop small{font-size:12px;color:var(--muted)}
+.ldtop strong{font:800 24px/1 var(--display);font-variant-numeric:tabular-nums}
+.ldtube.ok .ldtop strong{color:var(--good)} .ldtube.near .ldtop strong{color:var(--near)} .ldtube.far .ldtop strong{color:var(--bad)}
+.ldfacts{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.ldfacts em{font-style:normal;color:var(--ink);font-variant-numeric:tabular-nums}
+.ldspark{width:100%;height:72px;display:block}
+.ldspark .band{fill:color-mix(in srgb,var(--good) 14%,transparent)}
+.ldspark .zero{stroke:var(--good);stroke-width:1;stroke-dasharray:3 3}
+.ldspark .line{fill:none;stroke:var(--accent);stroke-width:2}
+.ldspark circle{fill:var(--accent)}
+.ldspark circle.last{fill:var(--ink)}
+.ldspark text{font:10px var(--mono);fill:var(--muted)}
+.ldheard{font:12px/1.6 var(--mono);color:var(--muted);font-variant-numeric:tabular-nums;word-break:break-word}
+.ldheard span{white-space:nowrap}
+.ldheard span.k{color:var(--ink)}
+.ldlinks{display:grid;gap:5px}
+.ldlinks div{display:flex;align-items:center;gap:8px;font-size:12.5px;line-height:1.3}
+.ldlinks .ev{padding:3px 6px;font-size:9.5px}
+.ldsec{font:800 13px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:4px 0 0}
+.ldchord{display:flex;flex-wrap:wrap;gap:6px}
+.ldchord span{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:600 12.5px var(--mono)}
 /* ===== Frequency map ===== */
 .tstatus{min-width:0}
 .hzmatch{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:62%;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer}
@@ -586,6 +624,12 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
       <button type="button" class="themebtn" id="themeBtn" aria-label="Switch to night"></button>
     </div>
   </header>
+  <div class="logdetail" id="logDetail" hidden role="dialog" aria-labelledby="ldTitle">
+    <div class="ldpanel">
+      <div class="ldhead"><button type="button" id="ldBack">‹ Log</button><h2 id="ldTitle"></h2></div>
+      <div id="ldBody"></div>
+    </div>
+  </div>
   <div class="logcopy" id="logCopy" hidden role="dialog" aria-label="Copy the file">
     <b>Copy this and paste it into a file</b>
     <p class="note-line">This app can't save files directly. Copy the text and paste it into a note, an email or a spreadsheet.</p>
@@ -1980,15 +2024,15 @@ function renderLog(){
   $("logStats").innerHTML='<div><b>'+L.length+'</b><span>wayunki</span></div><div><b>'+tubes+'</b><span>tubes</span></div><div><b>'+(tubes?Math.round(100*ok/tubes)+"%":"–")+'</b><span>in tune</span></div>';
   $("logList").innerHTML=L.length?L.map(e=>{
     const q=logQuality(e), live=false;
-    return '<div class="logitem'+(live?" lnow":"")+'"><button type="button" class="ldel" data-logdel="'+e.id+'" aria-label="Delete wayunki '+NUM[e.id]+'">×</button>'+
+    return '<div class="logitem'+(live?" lnow":"")+'" data-logopen="'+e.id+'" role="button" tabindex="0" aria-label="Open wayunki '+NUM[e.id]+'"><button type="button" class="ldel" data-logdel="'+e.id+'" aria-label="Delete wayunki '+NUM[e.id]+'">×</button>'+
       '<h3>#'+NUM[e.id]+' · '+(e.label||e.card||"Free set")+(live?' · tuning now':'')+'</h3>'+
       '<div class="lmeta">'+(e.device?esc(e.device)+' · ':'')+fmtDate(e.started)+(e.updated&&fmtDate(e.updated)!==fmtDate(e.started)?" → "+fmtDate(e.updated).slice(11):"")+' · A = '+e.a4+(e.label&&e.card?' · '+e.card:'')+' · '+e.rings.length+' strike'+(e.rings.length===1?"":"s")+' heard</div>'+
       '<div class="lq">'+q.n+' of 6 tubes · '+q.ok+' in tune (±'+(e.tol||3)+' ¢)'+(q.pairs?' · '+q.lk+' of '+q.pairs+' octave'+(q.pairs>1?"s":"")+' locked':'')+(e.chord?' · whole-chime check '+e.chord.score:'')+'</div>'+
-      '<div class="logtubes">'+e.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+(t.retunes?' ·'+t.retunes+'×':'')+'</span>').join("")+'</div></div>';
+      '<div class="logtubes">'+e.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+(t.retunes?' ·'+t.retunes+'×':'')+'</span>').join("")+'</div><span class="lopen">Open all data ›</span></div>';
   }).join(""):'<p class="note-line">Nothing saved yet. Tune a wayunki on the Tuner page, then press Reset chimes to save it here.</p>';
   const P=pendLoad();
-  if(P&&P.tubes.length) $("logList").insertAdjacentHTML("afterbegin",'<div class="logitem lnow"><h3>Now tuning · '+(P.label||P.card||"free set")+'</h3><div class="lmeta">Not in the log yet: press Reset chimes when this wayunki is finished to save it'+(sbOn()?' and share it':'')+'.</div>'+
-    '<div class="logtubes">'+P.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+'</span>').join("")+'</div></div>');
+  if(P&&P.tubes.length) $("logList").insertAdjacentHTML("afterbegin",'<div class="logitem lnow" data-logopen="__pending" role="button" tabindex="0"><h3>Now tuning · '+(P.label||P.card||"free set")+'</h3><div class="lmeta">Not in the log yet: press Reset chimes when this wayunki is finished to save it'+(sbOn()?' and share it':'')+'.</div>'+
+    '<div class="logtubes">'+P.tubes.map(t=>'<span class="'+stateOf(t.off)+'">'+t.note+' '+sgn(t.pair?t.cents:t.off,2)+(t.locked?' 🔒':'')+'</span>').join("")+'</div><span class="lopen">Open all data ›</span></div>');
 }
 /* Shared workshop log. The key below is Supabase's public "anon" key: it is meant to sit in web pages;
    the table's rules only allow reading, adding and updating (no deleting). */
@@ -2047,14 +2091,62 @@ function sbPaint(){
   if(n){ box.dataset.s="wait"; $("logSyncTxt").textContent="Uploading "+n+" wayunki…"; return; }
   box.dataset.s=tun.sbOK?"ok":""; $("logSyncTxt").textContent=tun.sbOK?"Shared log · synced "+fmtDate(tun.sbOK).slice(11):"Shared log · connecting…";
 }
+/* one wayunki, all its data */
+function ldSpark(cs,tol){
+  if(cs.length<2) return '';
+  const W=320,H=72,pad=6,vp=13,lim=Math.max(2,tol*1.4,...cs.map(c=>Math.abs(c)))*1.08, X=i=>pad+i*(W-2*pad-44)/(cs.length-1), Y=c=>H/2-c*(H/2-vp)/lim;
+  return '<svg class="ldspark" viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="none" aria-label="Off target at each strike">'+
+    '<rect class="band" x="0" y="'+Y(tol).toFixed(1)+'" width="'+W+'" height="'+(Y(-tol)-Y(tol)).toFixed(1)+'"/><line class="zero" x1="0" x2="'+W+'" y1="'+Y(0).toFixed(1)+'" y2="'+Y(0).toFixed(1)+'"/>'+
+    '<polyline class="line" points="'+cs.map((c,i)=>X(i).toFixed(1)+','+Y(c).toFixed(1)).join(' ')+'"/>'+
+    cs.map((c,i)=>'<circle'+(i===cs.length-1?' class="last"':'')+' cx="'+X(i).toFixed(1)+'" cy="'+Y(c).toFixed(1)+'" r="'+(i===cs.length-1?3.4:2.4)+'"/>').join('')+
+    '<text x="'+(W-2)+'" y="'+(Y(lim)+3).toFixed(1)+'" text-anchor="end">+'+lim.toFixed(1)+' ¢</text><text x="'+(W-2)+'" y="'+(Y(0)+3).toFixed(1)+'" text-anchor="end">0</text><text x="'+(W-2)+'" y="'+(Y(-lim)+3).toFixed(1)+'" text-anchor="end">−'+lim.toFixed(1)+' ¢</text></svg>';
+}
+function ldLinks(t,heard){
+  // every Hz-map connection found in all the frequencies heard on this tube (not only the final value)
+  const seen={}, out=[];
+  heard.concat([{f:t.f,fin:1}]).forEach(r=>hzMatches(r.f,false).forEach(m=>{
+    const key=m.it.g+'|'+m.it.n; const o=seen[key]||(seen[key]={m:m,n:0,best:m}); if(!r.fin) o.n++; if(m.c!=null&&(o.best.c==null||Math.abs(m.c)<Math.abs(o.best.c))) o.best=m;
+  }));
+  Object.keys(seen).forEach(k=>out.push(seen[k]));
+  out.sort((a,b)=>(a.best.it.r?1:0)-(b.best.it.r?1:0)||(Math.abs(a.best.c||0)+(a.best.k?3:0))-(Math.abs(b.best.c||0)+(b.best.k?3:0)));
+  return out;
+}
+function openLogDetail(id){
+  const pend=pendLoad(), L=logLive(), e=id==="__pending"?pend:L.find(x=>x.id===id); if(!e) return;
+  const NUM=logNums(L), num=id==="__pending"?null:NUM[e.id], q=logQuality(e), tol=e.tol||3;
+  $("ldTitle").textContent=(num?'#'+num+' · ':'Now tuning · ')+(e.label||e.card||'Free set');
+  const meta=[["Started",fmtDate(e.started)],["Last change",fmtDate(e.updated||e.started)],["Phone",e.device||"—"],["Card",e.card||"—"],["A reference",e.a4+" Hz"],["Octave rule",e.octOff==null?"off":"upper "+sgn(e.octOff,1)+" ¢"],["Lock zone","±"+e.lockTol+" ¢"],["In tune",q.ok+" of "+q.n+" (±"+tol+" ¢)"],["Octaves locked",q.pairs?q.lk+" of "+q.pairs:"—"],["Strikes heard",String(e.rings.length)],["Whole-chime check",e.chord?String(e.chord.score):"not done"]];
+  let h='<div class="ldmeta">'+meta.map(m=>'<div><span>'+m[0]+'</span><b>'+esc(m[1])+'</b></div>').join('')+'</div>';
+  if(!num) h+='<p class="note-line">Not in the log yet. Press Reset chimes when this wayunki is finished to save it'+(sbOn()?' and share it':'')+'.</p>';
+  const tubes=e.tubes.slice().sort((a,b)=>(a.num||99)-(b.num||99)||a.f-b.f);
+  h+='<p class="ldsec">Tubes</p>';
+  tubes.forEach(t=>{
+    const heard=e.rings.filter(r=>r.m===t.m), tf=t.f/Math.pow(2,t.off/1200), cs=heard.map(r=>1200*Math.log2(r.f/tf)), st=stateOf(t.off);
+    const links=ldLinks(t,heard);
+    h+='<div class="ldtube '+st+'"><div class="ldtop"><span><b>'+t.note+'</b> <small>'+(t.num?'tube '+t.num+(t.num===1?' · root':''):'')+'</small></span><strong>'+sgn(t.pair?t.cents:t.off,2)+' ¢</strong></div>'+
+      '<div class="ldfacts"><span>final <em>'+t.f.toFixed(3)+' Hz</em></span><span>vs equal temperament <em>'+sgn(t.cents,2)+' ¢</em></span><span>target <em>'+sgn(t.target,2)+' ¢</em></span><span>off target <em>'+sgn(t.off,2)+' ¢</em></span>'+
+      (t.pair?'<span>octave of <em>'+t.pair+'</em> · gap <em>'+sgn(t.gap,2)+' ¢</em> · <em>'+(t.locked?'🔒 locked':'not locked')+'</em></span>':'')+
+      '<span>rings averaged <em>'+t.rings+'</em>'+(t.spread?' · spread <em>±'+t.spread.toFixed(2)+' ¢</em>':'')+'</span><span>value changes <em>'+(t.retunes||0)+'</em></span><span>strikes heard <em>'+heard.length+'</em></span></div>'+
+      (cs.length>1?'<p class="ldsec">Tuning progress · off target at each strike</p>'+ldSpark(cs,tol):'')+
+      (heard.length?'<p class="ldsec">Every frequency heard</p><div class="ldheard">'+heard.map((r,i)=>'<span'+(i===heard.length-1?' class="k"':'')+'>'+r.f.toFixed(3)+' ('+sgn(cs[i],2)+')</span>').join(' · ')+'</div>':'')+
+      '<p class="ldsec">Interesting Hz connections</p>'+(links.length?'<div class="ldlinks">'+links.slice(0,8).map(o=>'<div><span class="ev" data-ev="'+o.best.it.ev+'">'+EVN[o.best.it.ev]+'</span><span>'+esc(hzMatchText(o.best))+(o.n?' · heard '+o.n+' of '+heard.length+' strikes':' · final value')+'</span></div>').join('')+'</div>':'<p class="note-line">None within ±'+S.hzTol+' ¢ (see Hz map settings).</p>')+
+      '</div>';
+  });
+  if(e.chord&&e.chord.tubes) h+='<p class="ldsec">Whole-chime check · score '+e.chord.score+(e.chord.at?' · '+fmtDate(e.chord.at):'')+'</p><div class="ldchord">'+e.chord.tubes.map(t=>'<span>'+t.note+' '+(t.dev==null?'not heard':sgn(t.dev,2)+' ¢')+'</span>').join('')+'</div>';
+  h+='<div class="logbtns" style="margin-top:6px"><button type="button" class="ghost" id="ldCsv">Export this wayunki</button>'+(num?'<button type="button" class="ghost" id="ldDel">Remove from the log</button>':'')+'</div>';
+  $("ldBody").innerHTML=h; $("logDetail").hidden=false; $("logDetail").scrollTop=0; tun.ldId=id;
+  $("ldCsv").onclick=()=>giveFile("soft-pulse-wayunki-"+(num||"now")+"-"+fmtDate(e.started).slice(0,10)+".csv",logCsv(id==="__pending"?[e]:[e.id]),"text/csv;charset=utf-8");
+  if($("ldDel")) $("ldDel").onclick=()=>{ const b=document.createElement("button"); b.dataset.logdel=e.id; $("logList").appendChild(b); b.click(); b.remove(); if(!logLive().find(x=>x.id===e.id)) $("logDetail").hidden=true; };
+}
 function csvCell(v){ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
-function logCsv(){
+function logCsv(only){
   const head=["Wayunki","Phone","Started","Last update","Label","Card","A ref (Hz)","Octave rule (¢)","Lock zone (¢)","Tolerance (¢)","Tube #","Note","Final Hz","Cents vs equal temperament","Target (¢)","Off target (¢)","In tolerance","Octave pair with","Octave gap (¢)","Octave locked","Rings averaged","Spread (¢)","Value changes (new ring > re-ring range)","First heard Hz","First heard, off target (¢)","Strikes heard","All heard Hz (in order)","Hz connections","Whole-chime score"];
   const rows=[head];
   const LL=logLive(), NUM=logNums(LL);
-  LL.sort((a,b)=>NUM[a.id]-NUM[b.id]).forEach(e=>e.tubes.forEach(t=>{
+  const pick=!only?LL:(typeof only[0]==="object"?only:LL.filter(e=>only.includes(e.id)));
+  pick.sort((a,b)=>(NUM[a.id]||1e9)-(NUM[b.id]||1e9)).forEach(e=>e.tubes.forEach(t=>{
     const heard=e.rings.filter(r=>r.m===t.m), first=heard.length?heard[0].f:null, tf=t.f/Math.pow(2,t.off/1200);
-    rows.push([NUM[e.id],e.device||"",fmtDate(e.started),fmtDate(e.updated||e.started),e.label||"",e.card||"",e.a4,e.octOff==null?"":e.octOff,e.lockTol,e.tol,t.num||"",t.note,t.f,t.cents,t.target,t.off,Math.abs(t.off)<=(e.tol||3)?"yes":"no",t.pair||"",t.gap==null?"":t.gap,t.pair?(t.locked?"yes":"no"):"",t.rings,t.spread,t.retunes,first==null?"":first,first==null?"":(1200*Math.log2(first/tf)).toFixed(2),heard.length,heard.map(r=>r.f).join(" | "),(t.links||[]).map(l=>l.n+(l.k?" (octave "+(l.k>0?"×":"÷")+Math.pow(2,Math.abs(l.k))+")":"")+" "+sgn(l.c,1)+"¢ ["+EVN[l.ev]+"]").join(" | "),e.chord?e.chord.score:""]);
+    rows.push([NUM[e.id]||"now",e.device||"",fmtDate(e.started),fmtDate(e.updated||e.started),e.label||"",e.card||"",e.a4,e.octOff==null?"":e.octOff,e.lockTol,e.tol,t.num||"",t.note,t.f,t.cents,t.target,t.off,Math.abs(t.off)<=(e.tol||3)?"yes":"no",t.pair||"",t.gap==null?"":t.gap,t.pair?(t.locked?"yes":"no"):"",t.rings,t.spread,t.retunes,first==null?"":first,first==null?"":(1200*Math.log2(first/tf)).toFixed(2),heard.length,heard.map(r=>r.f).join(" | "),(t.links||[]).map(l=>l.n+(l.k?" (octave "+(l.k>0?"×":"÷")+Math.pow(2,Math.abs(l.k))+")":"")+" "+sgn(l.c,1)+"¢ ["+EVN[l.ev]+"]").join(" | "),e.chord?e.chord.score:""]);
   }));
   return "﻿"+rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
 }
@@ -2630,7 +2722,11 @@ $("logRestore").addEventListener("change",e=>{
 $("logClear").addEventListener("click",()=>{ const L=logLoad(), live=L.filter(e=>!e.deleted); if(!live.length) return;
   if(!confirm("Remove all "+live.length+" wayunki from the log"+(sbOn()?" on every phone":"")+"? Export it first if you want a copy.")) return;
   const now=Date.now(); live.forEach(e=>{ e.deleted=true; e.updated=now; }); logStore(L); live.forEach(e=>sbQueue(e.id)); S.logId=null; save(); renderLog(); setMsg("Tuning log cleared."); });
-$("logList").addEventListener("click",e=>{ const b=e.target.closest("[data-logdel]"); if(!b) return; const L=logLoad(), x=L.find(y=>y.id===b.dataset.logdel), NUM=logNums(L.filter(y=>!y.deleted));
+$("logList").addEventListener("click",e=>{ if(!e.target.closest("[data-logdel]")){ const o=e.target.closest("[data-logopen]"); if(o) openLogDetail(o.dataset.logopen); } });
+$("logList").addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ const o=e.target.closest("[data-logopen]"); if(o&&!e.target.closest("[data-logdel]")){ e.preventDefault(); openLogDetail(o.dataset.logopen); } } });
+$("ldBack").addEventListener("click",()=>{ $("logDetail").hidden=true; tun.ldId=null; });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!$("logDetail").hidden){ $("logDetail").hidden=true; tun.ldId=null; } });
+$("logList").addEventListener("click",e=>{ const b=e.target.closest("[data-logdel]"); if(!b) return; e.stopPropagation(); const L=logLoad(), x=L.find(y=>y.id===b.dataset.logdel), NUM=logNums(L.filter(y=>!y.deleted));
   if(!x||!confirm("Remove wayunki #"+NUM[x.id]+" ("+(x.label||x.card||"free set")+") from the log"+(sbOn()?" on every phone":"")+"?")) return;
   x.deleted=true; x.updated=Date.now(); logStore(L); sbQueue(x.id); if(S.logId===x.id) S.logId=null; save(); renderLog(); });
 $("logDev").addEventListener("change",()=>{ S.devName=$("logDev").value.trim().slice(0,40); save(); setMsg(S.devName?"This phone is now “"+S.devName+"” in the log.":"Phone name removed."); });
