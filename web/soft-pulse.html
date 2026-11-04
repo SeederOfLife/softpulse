@@ -438,15 +438,21 @@ html.isfs .fsbtn .fs-out{display:block}
 .ldsec{font:800 13px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 0}
 .ldchord{display:flex;flex-wrap:wrap;gap:6px}
 .ldchord span{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font:600 12.5px var(--mono)}
-.ltypes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
-.ltype{border:1px solid var(--line);border-radius:12px;padding:10px 11px;display:grid;gap:4px;cursor:pointer;background:var(--surface);text-align:left;color:var(--ink);font:inherit}
-.ltype b{font:800 15px/1.1 var(--display);letter-spacing:.04em;text-transform:uppercase}
-.ltype small{font:11px var(--mono);color:var(--muted)}
-.ltype span{font-size:12px;color:var(--muted);line-height:1.35}
-.ltype span em{font-style:normal;color:var(--ink);font-weight:700}
-.ltype.none{opacity:.55}
-.ltype .lbar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
-.ltype .lbar i{display:block;height:100%;background:var(--good)}
+.ltypes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.ltype{border:1px solid var(--line);border-radius:16px;padding:10px 8px 12px;display:grid;justify-items:center;gap:4px;cursor:pointer;background:var(--surface);color:var(--ink);font:inherit;text-align:center}
+.ltype svg{width:100%;max-width:150px;height:auto;display:block}
+.ltype .ring{fill:none;stroke-width:21;stroke-linecap:round}
+.ltype .ringedge{fill:none;stroke-width:23;stroke-linecap:round;stroke:var(--line)}
+.ltype .pn{font:800 9.5px var(--body);fill:#2b2a27;text-anchor:middle;dominant-baseline:central}
+.ltype .seal{fill:none;stroke:var(--muted);stroke-width:1.2}
+.ltype .sealname{font:italic 700 13px Georgia,"Times New Roman",serif;fill:var(--ink);text-anchor:middle;dominant-baseline:central}
+.ltype .sealcount{font:700 10px var(--mono);fill:var(--muted);text-anchor:middle;dominant-baseline:central}
+.ltype b{font:800 14px/1.1 var(--display);letter-spacing:.05em;text-transform:uppercase}
+.ltype span{font-size:11.5px;color:var(--muted)}
+.ltype.none .ring{stroke:none}
+.ltype.none .ringedge{stroke:var(--line);stroke-dasharray:3 4}
+.ltype.none .pn{fill:var(--muted)}
+.ltype.none .sealname{fill:var(--muted)}
 .ldspec{width:100%;height:170px;display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
 .ldspec .grid{stroke:var(--line);stroke-width:1}
 .ldspec .glab{font:10px var(--mono);fill:var(--muted)}
@@ -2213,11 +2219,27 @@ function typeStats(c){
   return {W:W,n:W.length,tubes:T.length,ok:ok,pairs:P.length,lk:lk,score:CH.length?Math.round(CH.reduce((a,b)=>a+b,0)/CH.length):null,
     strikes:W.length?Math.round(W.reduce((a,e)=>a+e.rings.length,0)/W.length):0,last:W.length?W[W.length-1].updated||W[W.length-1].started:null};
 }
+/* a card tile drawn like the chime seen from above: six rounded aluminium petals in a ring, the name engraved in the middle */
+const SEAL={"card:gmaj":"G maj","card:gcmin":"G/C min","card:gcmaj":"G/C maj","card:fsmin":"F♯ min","card:amaj":"A maj","card:admin":"A/D min","card:amin":"A min"};
+function chimeRing(c,n){
+  const cx=70,cy=70,R=47,gap=10, order=c.order||[0,1,2,3,4,5], notes=cardNotes(c);
+  const pt=a=>[cx+R*Math.sin(a*Math.PI/180),cy-R*Math.cos(a*Math.PI/180)];
+  let arcs='',edges='',labels='';
+  order.forEach((idx,k)=>{
+    const a0=k*60-30+gap/2+5, a1=k*60+30-gap/2-5, p0=pt(a0), p1=pt(a1), mid=pt(k*60);
+    const d='M'+p0[0].toFixed(1)+','+p0[1].toFixed(1)+' A'+R+','+R+' 0 0 1 '+p1[0].toFixed(1)+','+p1[1].toFixed(1);
+    edges+='<path class="ringedge" d="'+d+'"/>'; arcs+='<path class="ring" stroke="url(#alu)" d="'+d+'"/>';
+    labels+='<text class="pn" x="'+mid[0].toFixed(1)+'" y="'+mid[1].toFixed(1)+'">'+notes[idx]+'</text>';
+  });
+  return '<svg viewBox="0 0 140 140" aria-hidden="true"><defs><linearGradient id="alu" gradientUnits="userSpaceOnUse" x1="20" y1="20" x2="120" y2="120"><stop offset="0" stop-color="#f4f4f2"/><stop offset=".35" stop-color="#b9bcbf"/><stop offset=".55" stop-color="#eef0f1"/><stop offset=".8" stop-color="#9ea2a6"/><stop offset="1" stop-color="#dfe1e3"/></linearGradient></defs>'+
+    edges+arcs+labels+'<circle class="seal" cx="70" cy="70" r="24"/><circle class="seal" cx="70" cy="70" r="21" stroke-dasharray="1.5 2.5"/>'+
+    '<text class="sealname" x="70" y="'+(n?65:70)+'"'+((SEAL[c.id]||c.name).length>5?' style="font-size:10.5px"':'')+'>'+(SEAL[c.id]||c.name)+'</text>'+(n?'<text class="sealcount" x="70" y="80">'+n+'×</text>':'')+'</svg>';
+}
 function renderTypes(){
   const box=$("logTypes"); if(!box) return;
-  box.innerHTML=CARDS.map(c=>{ const st=typeStats(c), pct=st.tubes?Math.round(100*st.ok/st.tubes):0;
-    return '<button type="button" class="ltype'+(st.n?'':' none')+'" data-type="'+c.id+'"><b>'+c.name+'</b><small>'+cardNotes(c).join(' ')+'</small>'+
-      (st.n?'<span><em>'+st.n+'</em> tuned · <em>'+pct+'%</em> in tune'+(st.pairs?' · <em>'+st.lk+'/'+st.pairs+'</em> octaves locked':'')+(st.score!=null?' · check <em>'+st.score+'</em>':'')+'</span><div class="lbar"><i style="width:'+pct+'%"></i></div><span>last '+fmtDate(st.last).slice(0,10)+'</span>':'<span>not tuned yet</span>')+'</button>';
+  box.innerHTML=CARDS.map(c=>{ const st=typeStats(c);
+    return '<button type="button" class="ltype'+(st.n?'':' none')+'" data-type="'+c.id+'" aria-label="'+c.name+', '+st.n+' tuned">'+chimeRing(c,st.n)+'<b>'+c.name+'</b>'+
+      '<span>'+(st.n?st.n+' tuned · last '+fmtDate(st.last).slice(0,10):'not tuned yet')+'</span></button>';
   }).join('');
 }
 function renderTypeDetail(cid){
