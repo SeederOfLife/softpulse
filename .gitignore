@@ -9,3 +9,6 @@ build/
 *.m4a
 node_modules/
 android/assets/index.html
+
+# the current Android app is published with the website
+!site/*.apk
