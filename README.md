@@ -22,6 +22,9 @@ Import this GitHub repo once in Vercel (no framework, no build command); every p
 After changing `web/soft-pulse.html`, run `tools/build_site.sh` and commit `site/`.
 HTTPS (which Vercel provides) is required for the microphone.
 
+## Download
+The current Android app is published with the website: `site/SoftPulse-<version>.apk`, linked from ⚙ settings → "Download the Android app".
+
 ## Build the APK
 ```
 VERSION=4.3 CODE=34 FW=path/to/android.jar DEX=path/to/classes.dex tools/build.sh

@@ -12,4 +12,6 @@ python3 tools/build_index.py web/soft-pulse.html android/assets/index.html
   --min-sdk-version 24 --target-sdk-version 34 --version-code "$CODE" --version-name "$VERSION" -A android/assets build/res.zip
 cp "$DEX" build/classes.dex && (cd build && zip -q -j unsigned.apk classes.dex)
 node tools/sign.mjs build/unsigned.apk "build/SoftPulse-$VERSION.apk"
-echo "built build/SoftPulse-$VERSION.apk"
+# publish this version with the website (the settings button links to it); update its link in web/soft-pulse.html
+rm -f site/*.apk && cp "build/SoftPulse-$VERSION.apk" site/
+echo "built build/SoftPulse-$VERSION.apk and copied it to site/"
