@@ -479,6 +479,13 @@ html.isfs .fsbtn .fs-out{display:block}
 .tstatus{min-width:0}
 .hzmatch{margin-left:auto;display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:62%;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 4px;background:var(--bg);color:var(--ink);font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer}
 .hzmatch span{overflow:hidden;text-overflow:ellipsis}
+.hzmatch .hzn{flex:0 1 auto;min-width:0}
+.hzmatch .hzg{flex:none;color:var(--muted)}
+.hzmatch .hzt{flex:none;font:700 12.5px var(--mono);font-variant-numeric:tabular-nums;overflow:visible}
+.hzmatch .hza{flex:none;font:700 12px var(--mono);font-variant-numeric:tabular-nums;overflow:visible;padding:1px 6px;border-radius:999px}
+.hzmatch .hza.up{color:var(--good);background:color-mix(in srgb,var(--good) 14%,transparent)}
+.hzmatch .hza.down{color:var(--bad);background:color-mix(in srgb,var(--bad) 14%,transparent)}
+.hzmatch .hza.on{color:var(--bg);background:var(--good)}
 .ev{flex:none;display:inline-block;font:800 10px/1 var(--body);letter-spacing:.06em;text-transform:uppercase;border-radius:999px;padding:4px 7px;color:var(--bg)}
 .ev[data-ev="M"]{background:var(--good)}
 .ev[data-ev="S"]{background:#4f8fd6}
@@ -494,6 +501,11 @@ html.isfs .fsbtn .fs-out{display:block}
 .hzgroup h3{margin:6px 0 0;font:800 14px/1.1 var(--display);letter-spacing:.06em;text-transform:uppercase}
 .hzgroup>p{margin:0;font-size:12px;color:var(--muted)}
 .hzrow{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"f r" "t t";gap:4px 10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+#hzCard .hznow .hzgo{display:inline-flex;align-items:center;gap:4px;margin:4px 4px 0 0;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:999px;padding:3px 9px 3px 3px;font:inherit;font-size:12.5px;cursor:pointer;text-align:left}
+#hzCard .hznow .hzgo:hover{border-color:var(--accent)}
+#hzCard .hznow .hzgoa{color:var(--accent);font-weight:700}
+.hzrow.flash{animation:hzflash 2.2s ease-out}
+@keyframes hzflash{0%,30%{background:color-mix(in srgb,var(--accent) 22%,transparent);border-color:var(--accent)}100%{background:transparent}}
 .hzrow.hit{border-color:var(--accent);box-shadow:inset 0 0 0 1.5px var(--accent)}
 .hzrow .hzf{grid-area:f;font:700 15px var(--mono);font-variant-numeric:tabular-nums}
 .hzrow .hzt{grid-area:t;display:grid;gap:2px;min-width:0}
@@ -643,6 +655,12 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
 }
 @media (max-width:370px){
   html[data-tab="tuner"] .pagedots button{padding:4px 3px;font-size:9px;letter-spacing:.01em}
+}
+@media (max-width:620px){
+  .tstatus{flex-wrap:wrap;row-gap:5px}
+  .hzmatch{margin-left:0;max-width:100%;flex:1 1 100%;justify-content:flex-start}
+  .hzmatch .hzg{display:none}
+  .hzmatch .hzt{margin-left:auto}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
@@ -902,7 +920,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
     <div class="sheetpanel">
       <div class="sheethead"><h2 id="sheetTitle">Tuner settings</h2><button type="button" class="round" id="sheetClose" data-close aria-label="Close settings">×</button></div>
       <div class="field" id="apkField"><span class="lab">Android app</span>
-        <a class="play apkbtn" id="apkLink" href="https://softpulse-eta.vercel.app/SoftPulse-5.4.apk" target="_blank" rel="noopener">Download the Android app · version 5.4</a>
+        <a class="play apkbtn" id="apkLink" href="https://softpulse-eta.vercel.app/SoftPulse-5.5.apk" target="_blank" rel="noopener">Download the Android app · version 5.5</a>
         <p class="note-line" id="apkNote">Opens and installs like any app. If Android asks, allow installing from this browser. Installing over an older Soft Pulse keeps your sets and settings.</p></div>
       <div class="field"><label class="lab" for="patSel">Chime pattern</label><select id="patSel"></select><p class="note-line">Auto-detect recognises the set from the notes heard. Pick a pattern to have the other five notes calculated as soon as the root rings. Your saved sets appear here too.</p></div>
       <div class="field"><span class="lab">Octave pairs</span><div class="chips" id="octChips"></div><div class="chips" id="octOffChips"></div><div class="chips" id="lockChips"></div><p class="note-line">When a set has the same note twice (A and a, G and g…), the lower one is tuned 0.5 ¢ above the upper one (upper −0.5 ¢), to match the overtone. Example: A4 reads +2.12 ¢ → A5's target is +1.62 ¢. "Upper +0.5 ¢" turns it the other way round. "Octave locked" lights up when the gap stays inside the lock zone.</p></div>
@@ -2769,6 +2787,7 @@ const HZG=[
     {m:9,n:"A · third eye (Ajna)",d:"Indigo.",ev:"B"},
     {m:11,n:"B · crown chakra (Sahasrara)",d:"Violet.",ev:"B"}]}
 ];
+const HZSHORT={earth:"Earth",brain:"Brain",sites:"Sites",pitch:"Pitch",cosmic:"Cosmic",solf:"Solfeggio",chakra:"Chakra"};
 const HZ_SOURCES="Sources: W. O. Schumann (1952) and NASA/ScienceInsights summaries of the Schumann resonance · EEG bands: Biopac, NIH/PMC reviews · MIT Picower / Media Lab (40 Hz, Tsai) · V. Tandy & T. Lawrence, J. Soc. Psychical Research (1998) · E. von Muggenthaler (2001) · R. Jahn et al., PEAR (1995–96) · I. Cook, S. Pajot, A. Leuchter, Time and Mind 1(1) 2008 · P. Debertolis, F. Coimbra, L. Eneix, Ħal Saflieni Hypogeum study (2015), University of Malta · S. Alexjander on Danley/Dunn (King's Chamber) · Wikipedia 'A440 (pitch standard)', ISO 16 · H. Cousto, The Cosmic Octave (1978) · solfeggio: Discovery UK review, BetterSleep chakra table.";
 function hzItems(){ const out=[]; HZG.forEach(g=>g.items.forEach(it=>{ const f=it.m!=null?S.a4*Math.pow(2,(it.m+3)/12)/2:it.f; out.push(Object.assign({g:g.id,gname:g.name,hz:f},it,{oct:it.m!=null?1:it.oct})); })); return out; }
 /* matches for a heard frequency: exact (within the tolerance), then octaves, then wide ranges */
@@ -2791,16 +2810,31 @@ function paintHzMatch(f){
   const ms=hzMatches(f,true);
   const best=ms.find(m=>!m.it.r)||ms[0];
   if(!best){ el.hidden=true; tun.hzKey=""; }
-  else { el.hidden=false; el.innerHTML='<span class="ev" data-ev="'+best.it.ev+'">'+EVN[best.it.ev]+'</span><span>'+hzMatchText(best)+'</span>'+(ms.length>1?'<span>+'+(ms.length-1)+'</span>':''); }
+  else if(best.it.r){ el.hidden=false; el.innerHTML='<span class="ev" data-ev="'+best.it.ev+'">'+EVN[best.it.ev]+'</span><span class="hzn">'+hzMatchText(best)+'</span>'; }
+  else {
+    // the exact frequency aimed at (the octave actually near), and which way to go to reach it
+    const it=best.it, aim=it.hz*Math.pow(2,best.k), dHz=aim-f, name=it.n.replace(/ · [\d.]+ Hz$/,"").replace(/^[\d.]+ Hz · /,"");
+    const arrow=Math.abs(best.c)<0.5?'<span class="hza on" title="On it">● on it</span>':(dHz>0?'<span class="hza up" title="Go up to reach it">▲ +'+dHz.toFixed(2)+' Hz</span>':'<span class="hza down" title="Go down to reach it">▼ −'+(-dHz).toFixed(2)+' Hz</span>');
+    el.hidden=false;
+    el.title=it.n+(best.k?' ('+hzFmt(it.hz)+' Hz'+hzMul(best.k)+')':'')+' · '+EVD[it.ev];
+    el.innerHTML='<span class="ev" data-ev="'+it.ev+'">'+EVN[it.ev]+'</span><span class="hzg">'+HZSHORT[it.g]+'</span><span class="hzn">'+name+'</span><span class="hzt">'+aim.toFixed(2)+' Hz</span>'+arrow;
+  }
   tun.hzF=f; if(curPageId()==="hzCard") paintHzNow();
 }
 function curPageId(){ const i=typeof curPage==="function"?curPage():0; return PAGES[i]?PAGES[i][0]:""; }
 function paintHzNow(){
   const f=tun.hzF, box=$("hzNow"); if(!box) return;
   const ms=f?hzMatches(f,false):[];
-  box.innerHTML=f?('Hearing <b>'+f.toFixed(2)+' Hz</b> · '+(ms.length?ms.slice(0,4).map(m=>'<span class="ev" data-ev="'+m.it.ev+'" style="padding:3px 6px;font-size:9.5px">'+EVN[m.it.ev]+'</span> '+hzMatchText(m)).join(' · '):'no match within ±'+S.hzTol+' ¢')):'Strike something: the closest matches show here.';
+  box.innerHTML=f?('Hearing <b>'+f.toFixed(2)+' Hz</b> · '+(ms.length?ms.slice(0,4).map(m=>'<button type="button" class="hzgo" data-hzk="'+(m.it.g+'|'+m.it.n).replace(/"/g,'&quot;')+'" title="Show this entry"><span class="ev" data-ev="'+m.it.ev+'" style="padding:3px 6px;font-size:9.5px">'+EVN[m.it.ev]+'</span> '+hzMatchText(m)+' <span class="hzgoa">↓</span></button>').join(' '):'no match within ±'+S.hzTol+' ¢')):'Strike something: the closest matches show here.';
   const hit=new Set(ms.map(m=>m.it.g+"|"+m.it.n));
   document.querySelectorAll("#hzList .hzrow").forEach(r=>r.classList.toggle("hit",hit.has(r.dataset.k)));
+}
+function hzGoTo(k){
+  const row=[...document.querySelectorAll("#hzList .hzrow")].find(r=>r.dataset.k===k); if(!row) return;
+  let sc=row.parentElement; while(sc&&sc!==document.body){ const oy=getComputedStyle(sc).overflowY; if((oy==="auto"||oy==="scroll")&&sc.scrollHeight>sc.clientHeight) break; sc=sc.parentElement; }
+  if(sc&&sc!==document.body){ sc.scrollTo({top:sc.scrollTop+row.getBoundingClientRect().top-sc.getBoundingClientRect().top-60,behavior:"smooth"}); }
+  else window.scrollTo({top:window.scrollY+row.getBoundingClientRect().top-80,behavior:"smooth"});
+  row.classList.remove("flash"); void row.offsetWidth; row.classList.add("flash"); clearTimeout(row._ft); row._ft=setTimeout(()=>row.classList.remove("flash"),2200);
 }
 function renderHz(){
   if(!$("hzList")) return;
@@ -2885,6 +2919,10 @@ $("logCopyClose").addEventListener("click",()=>{ $("logCopy").hidden=true; });
 (function(){ const ua=navigator.userAgent;
   if(/; wv\)/.test(ua)){ $("apkField").hidden=true; return; }
   if(/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1)){ $("apkLink").hidden=true; $("apkNote").textContent="The app file is for Android phones. On iPhone, add the website to your home screen instead (the full-screen button shows how)."; }
+})();
+(function(){ let downK=null; const b=$("hzNow"); if(!b) return;
+  b.addEventListener("pointerdown",e=>{ const t=e.target.closest&&e.target.closest(".hzgo"); downK=t?t.dataset.hzk:null; });
+  b.addEventListener("click",e=>{ const t=e.target.closest&&e.target.closest(".hzgo"); const k=t?t.dataset.hzk:downK; downK=null; if(k) hzGoTo(k); });
 })();
 $("hzMatch").addEventListener("click",()=>{ const v=$("tunerView"), i=PAGES.findIndex(p=>p[0]==="hzCard"); v.scrollTo({left:i*(v.clientWidth+16),behavior:"smooth"}); });
 $("tunerView").addEventListener("scrollend",()=>{ tun.lastPage=curPage(); });
