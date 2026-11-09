@@ -19,4 +19,19 @@ if 'rel="manifest"' not in s: s=s.replace('<meta name="color-scheme" content="li
 assert 'rel="manifest"' in s
 open(p,'w').write(s)
 PY
+# offline: a service worker keeps a copy of the app so it opens again without internet
+python3 - <<'PY'
+import hashlib, os
+p='site/index.html'; s=open(p).read()
+reg=('<script>if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost"))'
+     'addEventListener("load",function(){navigator.serviceWorker.register("sw.js").catch(function(){});});</script>')
+if 'serviceWorker.register' not in s: s=s.replace('</head>',reg+'</head>',1)
+assert 'serviceWorker.register' in s
+open(p,'w').write(s)
+files=['./','manifest.webmanifest','icon-192.png','icon-512.png','apple-touch-icon.png']+['fonts/'+f for f in sorted(os.listdir('site/fonts'))]
+h=hashlib.sha256()
+for f in ['index.html']+files[1:]: h.update(open('site/'+f,'rb').read())
+sw=open('tools/sw.template.js').read().replace('__VER__',h.hexdigest()[:12]).replace('__FILES__',repr(files).replace("'",'"'))
+open('site/sw.js','w').write(sw)
+PY
 echo "site/index.html updated"
