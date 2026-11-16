@@ -334,6 +334,7 @@ kbd{font:500 11px var(--mono);border:1px solid var(--line);border-radius:4px;pad
   .count{font-size:54px}
 }
 .chordbtn{width:100%;font-weight:700}
+.chordbtn2{width:auto;min-width:60%;justify-self:center}
 .chordbtn.listening{border-color:var(--accent);color:var(--accent);animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.55}}
 .chordbox{border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:10px;background:var(--bg)}
@@ -806,6 +807,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
           <div class="chhead"><div class="chscore"><b id="chScore">–</b><span id="chGrade"></span></div><span class="chtitle" id="chTitle">Whole chime</span><button type="button" class="cx" id="chClose" aria-label="Close the result">×</button></div>
           <div class="chbar"><i id="chFill"></i></div>
           <div class="chrows" id="chRows"></div>
+          <button type="button" class="ghost chordbtn chordbtn2" id="chordBtn2">Check chime</button>
           <div class="chpairs" id="chPairs"></div>
           <p class="note-line" id="chNote"></p>
         </div>
@@ -1868,7 +1870,7 @@ function chordScan(win){
 }
 function startChord(now,auto){
   tun.chord={t0:now,frames:[],auto:auto,started:false};
-  $("chordBtn").classList.add("listening"); $("chordBtn").textContent=auto?"Whole chime heard · measuring…":"Ring the whole chime now…";
+  chordUI(true,auto?"Whole chime heard · measuring…":"Ring the whole chime now…");
   setStatus("good",auto?"Whole chime detected · measuring":"Waiting for the whole chime");
 }
 function chordFrame(now,loud){
@@ -1877,7 +1879,7 @@ function chordFrame(now,loud){
     if(C.auto||loud){ const sc=chordScan(); if(sc.filter(x=>x.found).length>=3){ C.started=now; } }
     if(!C.started){ if(now-C.t0>15000) finishChord(true); return; }
   }
-  const el=now-C.started; $("chordBtn").textContent="Measuring the whole chime · "+Math.min(3,el/1000).toFixed(1)+" s";
+  const el=now-C.started; chordUI(true,"Measuring the whole chime · "+Math.min(3,el/1000).toFixed(1)+" s");
   if(el>250){ C.frames.push(chordScan()); chordSpecAdd(C); }
   if(el>=3200) finishChord(false);
 }
@@ -1898,7 +1900,7 @@ function chordSpecAdd(C){
 }
 function finishChord(timeout){
   const C=tun.chord; tun.chord=null; tun.chordCool=performance.now(); tun.chordHush=true; tun.rb=[]; tun.lock=null; tun.onset=null;
-  $("chordBtn").classList.remove("listening"); $("chordBtn").textContent="Check chime";
+  chordUI(false,"Check chime");
   if(timeout||!C.frames.length){ setMsg("No whole chime heard. Press the button and ring all the tubes together."); return; }
   const tubes=chordTargets().map((t,i)=>{
     const fs=C.frames.map(fr=>fr[i]).filter(x=>x&&x.found).map(x=>x.f);
@@ -1929,7 +1931,9 @@ function finishChord(timeout){
   logSave(e=>{ e.chord={score:score,at:Date.now(),spec:spec,tubes:tubes.map(t=>({note:noteLabel(t.m),m:t.m,f:t.f?+t.f.toFixed(3):null,dev:t.dev!=null?+t.dev.toFixed(2):null}))}; });
 }
 const LOCKSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>';
-$("chordBtn").addEventListener("click",()=>{ if(tun.chord){ tun.chord=null; $("chordBtn").classList.remove("listening"); $("chordBtn").textContent="Check chime"; return; } if(!tun.on){ setMsg("The microphone isn't listening yet."); return; } if(chordTargets().length<3){ setMsg("Strike at least three chimes first so the app knows the set."); return; } startChord(performance.now(),false); });
+function chordUI(on,txt){ ["chordBtn","chordBtn2"].forEach(id=>{ const b=$(id); if(!b) return; b.classList.toggle("listening",on); b.textContent=txt; }); }
+function chordClick(){ if(tun.chord){ tun.chord=null; chordUI(false,"Check chime"); return; } if(!tun.on){ setMsg("The microphone isn't listening yet."); return; } if(chordTargets().length<3){ setMsg("Strike at least three chimes first so the app knows the set."); return; } startChord(performance.now(),false); }
+$("chordBtn").addEventListener("click",chordClick); $("chordBtn2").addEventListener("click",chordClick);
 $("chClose").addEventListener("click",()=>{ $("chordBox").hidden=true; });
 function targetFor(nm){
   if(S.octPair){ const low=S.chimes.find(x=>midiOf(x.f)===nm-12); if(low) return {f:low.f*2*Math.pow(2,S.octOff/1200), pair:noteLabel(nm-12)}; }
