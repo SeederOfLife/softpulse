@@ -911,7 +911,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
     <div class="sheetpanel">
       <div class="sheethead"><h2 id="sheetTitle">Tuner settings</h2><button type="button" class="round" id="sheetClose" data-close aria-label="Close settings">×</button></div>
       <div class="field" id="apkField"><span class="lab">Android app</span>
-        <a class="play apkbtn" id="apkLink" href="https://softpulse-eta.vercel.app/SoftPulse-5.6.apk" target="_blank" rel="noopener">Download the Android app · version 5.6</a>
+        <a class="play apkbtn" id="apkLink" href="https://softpulse-eta.vercel.app/SoftPulse-5.7.apk" target="_blank" rel="noopener">Download the Android app · version 5.7</a>
         <p class="note-line" id="apkNote">Opens and installs like any app. If Android asks, allow installing from this browser. Installing over an older Soft Pulse keeps your sets and settings.</p></div>
       <div class="field"><label class="lab" for="patSel">Chime pattern</label><select id="patSel"></select><p class="note-line">Auto-detect recognises the set from the notes heard. Pick a pattern to have the other five notes calculated as soon as the root rings. Your saved sets appear here too.</p></div>
       <div class="field"><span class="lab">Octave pairs</span><div class="chips" id="octChips"></div><div class="chips" id="octOffChips"></div><div class="chips" id="lockChips"></div><p class="note-line">When a set has the same note twice (A and a, G and g…), the lower one is tuned 0.5 ¢ above the upper one (upper −0.5 ¢), to match the overtone. Example: A4 reads +2.12 ¢ → A5's target is +1.62 ¢. "Upper +0.5 ¢" turns it the other way round. "Octave locked" lights up when the gap stays inside the lock zone.</p></div>
@@ -1912,10 +1912,16 @@ function finishChord(timeout){
   tubes.forEach(t=>{
     if(!t.heard){ t.dev=null; cnt++; return; }
     const low=byM[t.m-12];
-    if(S.octPair&&low){ t.gap=1200*Math.log2(t.f/(2*low.f)); t.dev=t.gap-S.octOff; t.pairOf=low; const a=Math.abs(t.dev); t.state=a<=S.lockTol?"ok":a<=1?"near":"far"; }
+    if(S.octPair&&low){
+      // in the mix the lower tube's 2x overtone covers the upper tube, so the pair is judged
+      // from the single strikes (saved rings); the mix reading is shown beside it
+      t.gapMix=1200*Math.log2(t.f/(2*low.f));
+      const ru=S.chimes.find(x=>midiOf(x.f)===t.m), rl=S.chimes.find(x=>midiOf(x.f)===t.m-12);
+      t.fromStrikes=!!(ru&&rl); t.gap=t.fromStrikes?1200*Math.log2(ru.f/(2*rl.f)):t.gapMix;
+      t.dev=t.gap-S.octOff; t.pairOf=low; const a=Math.abs(t.dev); t.state=a<=S.lockTol?"ok":a<=1?"near":"far"; }
     else { t.dev=centsOf(t.f); t.state=stateOf(t.dev); } sum+=Math.max(0,100-20*Math.abs(t.dev)); cnt++;
   });
-  const pairs=tubes.filter(t=>t.pairOf).map(t=>({low:t.pairOf,up:t,gap:t.gap,beat:Math.abs(t.f-2*t.pairOf.f),locked:Math.abs(t.gap-S.octOff)<=S.lockTol}));
+  const pairs=tubes.filter(t=>t.pairOf).map(t=>({low:t.pairOf,up:t,gap:t.gap,mix:t.gapMix,strikes:t.fromStrikes,locked:Math.abs(t.gap-S.octOff)<=S.lockTol}));
   pairs.forEach(p=>{ sum+=Math.max(0,100-100*Math.abs(p.gap-S.octOff)); cnt++; });
   const score=Math.round(sum/Math.max(1,cnt)), grade=score>=90?"ex":score>=70?"ok":"bad";
   const box=$("chordBox"); box.hidden=false; box.dataset.grade=grade;
@@ -1923,12 +1929,12 @@ function finishChord(timeout){
   $("chFill").style.width=score+"%"; $("chFill").style.background=grade==="ex"?"var(--good)":grade==="ok"?"var(--near)":"var(--bad)";
   $("chTitle").textContent="Whole chime · "+tubes.filter(t=>t.heard).length+" of "+tubes.length+" tubes heard";
   $("chRows").innerHTML=tubes.map(t=>'<div class="'+(t.heard?t.state:"miss")+'"><small>'+t.num+'</small><b>'+noteLabel(t.m)+'</b><span>'+(t.heard?sgn(t.dev,2):"not heard")+'</span></div>').join("");
-  $("chPairs").innerHTML=pairs.map(p=>'<div><span><b>'+noteLabel(p.low.m)+' ↔ '+noteLabel(p.up.m)+'</b><small>overtone gap '+sgn(p.gap,2)+' ¢ · beat '+p.beat.toFixed(2)+' Hz</small></span>'+(p.locked?'<span class="lk">'+LOCKSVG+'locked</span>':'<span class="nl">'+(p.gap>S.octOff?"▼ upper too high":"▲ upper too low")+'</span>')+'</div>').join("");
+  $("chPairs").innerHTML=pairs.map(p=>'<div><span><b>'+noteLabel(p.low.m)+' ↔ '+noteLabel(p.up.m)+'</b><small>'+(p.strikes?'gap '+sgn(p.gap,2)+' ¢ from single strikes · in the mix '+sgn(p.mix,2)+' ¢':'gap '+sgn(p.gap,2)+' ¢ in the mix · strike both tubes alone for the real gap')+'</small></span>'+(p.locked?'<span class="lk">'+LOCKSVG+'locked</span>':'<span class="nl">'+(p.gap>S.octOff?"▼ upper too high":"▲ upper too low")+'</span>')+'</div>').join("");
   const missing=tubes.filter(t=>!t.heard).map(t=>noteLabel(t.m));
-  $("chNote").textContent=(missing.length?"Not heard in the mix: "+missing.join(", ")+". ":"")+"Cents are measured with all tubes ringing together; octave pairs are judged by their gap.";
+  $("chNote").textContent=(missing.length?"Not heard in the mix: "+missing.join(", ")+". ":"")+"Cents are measured with all tubes ringing together. Octave pairs are judged from your single strikes: in the mix the lower tube's overtone covers the upper tube.";
   try{navigator.vibrate&&navigator.vibrate(grade==="ex"?[40,60,40,60,40]:[60]);}catch(_){}
   const spec=C.spN?{lo:SPEC_LO,hi:SPEC_HI,db:Array.from(C.spAcc,v=>v>0?Math.round(100*Math.log10(v/C.spN))/10:-140)}:null;
-  logSave(e=>{ e.chord={score:score,at:Date.now(),spec:spec,tubes:tubes.map(t=>({note:noteLabel(t.m),m:t.m,f:t.f?+t.f.toFixed(3):null,dev:t.dev!=null?+t.dev.toFixed(2):null}))}; });
+  logSave(e=>{ e.chord={score:score,at:Date.now(),spec:spec,tubes:tubes.map(t=>({note:noteLabel(t.m),m:t.m,f:t.f?+t.f.toFixed(3):null,dev:t.dev!=null?+t.dev.toFixed(2):null,gap:t.gap!=null?+t.gap.toFixed(2):undefined,mix:t.gapMix!=null?+t.gapMix.toFixed(2):undefined}))}; });
 }
 const LOCKSVG='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>';
 function chordUI(on,txt){ ["chordBtn","chordBtn2"].forEach(id=>{ const b=$(id); if(!b) return; b.classList.toggle("listening",on); b.textContent=txt; }); }

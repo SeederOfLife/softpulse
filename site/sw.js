@@ -1,5 +1,5 @@
 // Soft Pulse offline copy. Built by tools/build_site.sh: the version changes whenever the app changes.
-const CACHE = "softpulse-b0ee41c9f9a5";
+const CACHE = "softpulse-e0319033c79f";
 const FILES = ["./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "fonts/big-shoulders-display-latin-600-normal.woff2", "fonts/big-shoulders-display-latin-800-normal.woff2", "fonts/figtree-latin-400-normal.woff2", "fonts/figtree-latin-500-normal.woff2", "fonts/figtree-latin-600-normal.woff2", "fonts/figtree-latin-700-normal.woff2", "fonts/jetbrains-mono-latin-500-normal.woff2"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting()));
