@@ -1,6 +1,8 @@
 // Soft Pulse offline copy. Built by tools/build_site.sh: the version changes whenever the app changes.
 const CACHE = "softpulse-__VER__";
 const FILES = __FILES__;
+// the folder the app lives in: "/" on its own domain, "/softpulse/" on GitHub Pages
+const BASE = new URL("./", self.location).pathname;
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: "reload" })))).then(() => self.skipWaiting()));
 });
@@ -12,10 +14,10 @@ function timeout(p, ms) { return new Promise((ok, no) => { const t = setTimeout(
 self.addEventListener("fetch", e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== "GET" || url.origin !== location.origin || url.pathname.endsWith(".apk")) return; // log sync, downloads: untouched
-  if (req.mode === "navigate" || url.pathname === "/" || url.pathname.endsWith("/index.html") || url.pathname === "/index") {
+  const isApp = url.pathname === BASE || url.pathname === BASE + "index.html" || url.pathname === BASE + "index";
+  if (req.mode === "navigate" || isApp) {
     // the app page: newest from the internet when there is one, otherwise the saved copy
     e.respondWith(timeout(fetch(req), 4000).then(r => {
-      const isApp = url.pathname === "/" || url.pathname.endsWith("/index.html") || url.pathname === "/index";
       if (isApp && r && r.ok && !r.redirected) { const cp = r.clone(); caches.open(CACHE).then(c => c.put("./", cp)); }
       return r;
     }).catch(() => caches.match("./", { cacheName: CACHE }).then(r => r || caches.match("./"))));

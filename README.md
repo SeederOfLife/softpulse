@@ -17,7 +17,7 @@ A metronome and a precision chime tuner in one app — built for tuning six-tube
 Music-style tempo picks, 4/8/16/32 subdivisions, real drum and instrument sounds, timer.
 
 ## Website (Vercel)
-`site/` is the ready-to-serve website (`site/index.html` + local fonts), and `vercel.json` tells Vercel to serve it.
+`site/` is the ready-to-serve website (`site/index.html` + local fonts), published by GitHub Pages at https://seederoflife.github.io/softpulse/ (workflow in `.github/workflows/pages.yml`).
 Import this GitHub repo once in Vercel (no framework, no build command); every push then redeploys automatically.
 After changing `web/soft-pulse.html`, run `tools/build_site.sh` and commit `site/`.
 HTTPS (which Vercel provides) is required for the microphone.
