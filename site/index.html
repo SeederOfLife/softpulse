@@ -248,6 +248,9 @@ kbd{font:500 11px var(--mono);border:1px solid var(--line);border-radius:4px;pad
 .ctile.next{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 .ctile.next b{color:var(--accent)}
 .patrow{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center}
+.tunrow{display:flex;align-items:center;gap:8px;min-width:0}
+.tunrow .patinfo{flex:1;min-width:0}
+.tunrow select.tunsel{flex:0 0 auto;width:auto;max-width:52%;min-height:0;font-size:12.5px;font-weight:700;padding:5px 24px 5px 10px;border-radius:999px;text-overflow:ellipsis}
 .patinfo{margin:0;font-size:13px;line-height:1.45;color:var(--muted);font-variant-numeric:tabular-nums}
 .patinfo strong{color:var(--ink);font-weight:700} .ctile.empty b{color:var(--muted)}
 .ctile.flash{animation:flash .9s ease-out}
@@ -559,7 +562,8 @@ html[data-tab="tuner"] .ctile strong{font-size:17px;font-size:clamp(17px,3.1vh,2
 html[data-tab="tuner"] .ctile em{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 html[data-tab="tuner"] .chimes .maphead{order:3;margin:0}
 html[data-tab="tuner"] .chimes .maphead .lab{display:none}
-html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+html[data-tab="tuner"] .chimes .tunrow{order:4}
+html[data-tab="tuner"] .chimes .patinfo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
 .actwrap{position:relative;display:flex;flex-direction:column;gap:8px}
 .cactions{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr)}
 .cactions button{min-height:46px;font-size:13px;line-height:1.15;padding:6px 8px}
@@ -823,7 +827,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
           <p class="note-line" id="chNote"></p>
         </div>
         <div class="maphead"><span class="lab">Six chimes · filled automatically</span><span class="note-line" id="chimeCount">0 of 6</span></div>
-        <p class="patinfo" id="patInfo"></p>
+        <div class="tunrow"><select id="patSel2" class="tunsel" aria-label="Tuning to work on"></select><p class="patinfo" id="patInfo"></p></div>
         <p class="note-line" id="setMsg" hidden></p>
       </div>
       </div>
@@ -922,7 +926,7 @@ html[data-tab="tuner"] .chimes .patinfo{order:4;white-space:nowrap;overflow:hidd
     <div class="sheetpanel">
       <div class="sheethead"><h2 id="sheetTitle">Tuner settings</h2><button type="button" class="round" id="sheetClose" data-close aria-label="Close settings">×</button></div>
       <div class="field" id="apkField"><span class="lab">Android app</span>
-        <a class="play apkbtn" id="apkLink" href="https://seederoflife.github.io/softpulse/SoftPulse-5.8.apk" target="_blank" rel="noopener">Download the Android app · version 5.8</a>
+        <a class="play apkbtn" id="apkLink" href="https://seederoflife.github.io/softpulse/SoftPulse-5.9.apk" target="_blank" rel="noopener">Download the Android app · version 5.9</a>
         <p class="note-line" id="apkNote">Opens and installs like any app. If Android asks, allow installing from this browser. Installing over an older Soft Pulse keeps your sets and settings.</p></div>
       <div class="field"><label class="lab" for="patSel">Chime pattern</label><select id="patSel"></select><p class="note-line">Auto-detect recognises the set from the notes heard. Pick a pattern to have the other five notes calculated as soon as the root rings. Your saved sets appear here too.</p></div>
       <div class="field"><span class="lab">Octave pairs</span><div class="chips" id="octChips"></div><div class="chips" id="octOffChips"></div><div class="chips" id="lockChips"></div><p class="note-line">When a set has the same note twice (A and a, G and g…), the lower one is tuned 0.5 ¢ above the upper one (upper −0.5 ¢), to match the overtone. Example: A4 reads +2.12 ¢ → A5's target is +1.62 ¢. "Upper +0.5 ¢" turns it the other way round. "Octave locked" lights up when the gap stays inside the lock zone.</p></div>
@@ -2427,7 +2431,14 @@ function renderPatSel(){
   h+='<optgroup label="General patterns">'+PATTERNS.map(p=>opt(p.id,p.name+" · "+p.deg)).join("")+'</optgroup>';
   if(ups.length) h+='<optgroup label="Your saved sets">'+ups.map(p=>opt(p.id,p.name)).join("")+'</optgroup>';
   $("patSel").innerHTML=h;
-  if(!findPattern(S.pat)&&S.pat!=="auto"&&S.pat!=="none"){ S.pat="auto"; $("patSel").value="auto"; }
+  // the short menu on the tuner screen: names only
+  let h2=opt("auto","Auto-detect")+opt("none","Free set");
+  h2+='<optgroup label="Chime cards">'+CARDS.map(p=>opt(p.id,p.name)).join("")+'</optgroup>';
+  h2+='<optgroup label="General patterns">'+PATTERNS.map(p=>opt(p.id,p.name)).join("")+'</optgroup>';
+  if(ups.length) h2+='<optgroup label="Your saved sets">'+ups.map(p=>opt(p.id,p.name)).join("")+'</optgroup>';
+  $("patSel2").innerHTML=h2;
+  $("patSel").value=S.pat; $("patSel2").value=S.pat;
+  if(!findPattern(S.pat)&&S.pat!=="auto"&&S.pat!=="none"){ S.pat="auto"; $("patSel").value="auto"; $("patSel2").value="auto"; }
 }
 function renderChimes(){
   const ap=activePattern(), info=$("patInfo");
@@ -2468,7 +2479,7 @@ function renderChimes(){
   $("chSave").textContent="Save set";
   $("chSave").disabled=!n;
 }
-$("patSel").addEventListener("change",e=>{ S.pat=e.target.value; renderChimes(); save(); });
+["patSel","patSel2"].forEach(id=>$(id).addEventListener("change",e=>{ S.pat=e.target.value; $("patSel").value=S.pat; $("patSel2").value=S.pat; renderChimes(); save(); }));
 function loadSets(){ try{ const o=JSON.parse(localStorage.getItem(SETKEY)||"{}"); return o&&typeof o==="object"?o:{}; }catch(e){ return {}; } }
 function storeSets(o){ try{ localStorage.setItem(SETKEY,JSON.stringify(o)); return true; }catch(e){ return false; } }
 function setMsg(t){ const el=$("setMsg"); el.textContent=t; el.hidden=!t; clearTimeout(tun.msgT); if(t) tun.msgT=setTimeout(()=>{el.hidden=true;},4000); }

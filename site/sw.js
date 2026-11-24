@@ -1,5 +1,5 @@
 // Soft Pulse offline copy. Built by tools/build_site.sh: the version changes whenever the app changes.
-const CACHE = "softpulse-94325ce948c7";
+const CACHE = "softpulse-82bb3cc975e1";
 const FILES = ["./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png", "fonts/big-shoulders-display-latin-600-normal.woff2", "fonts/big-shoulders-display-latin-800-normal.woff2", "fonts/figtree-latin-400-normal.woff2", "fonts/figtree-latin-500-normal.woff2", "fonts/figtree-latin-600-normal.woff2", "fonts/figtree-latin-700-normal.woff2", "fonts/jetbrains-mono-latin-500-normal.woff2"];
 // the folder the app lives in: "/" on its own domain, "/softpulse/" on GitHub Pages
 const BASE = new URL("./", self.location).pathname;
