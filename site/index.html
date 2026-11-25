@@ -1422,6 +1422,29 @@ document.addEventListener("keydown",e=>{
 /* ================= TUNER ================= */
 const mf=m=>S.a4*Math.pow(2,(m-69)/12);
 const midiOf=f=>Math.round(69+12*Math.log2(f/S.a4));
+/* a chosen tuning: an untuned tube can be more than half a semitone off, so it belongs to the nearest note of that tuning */
+function cardNotes(){
+  if(S.pat==="auto"||S.pat==="none") return null;
+  const P=findPattern(S.pat); if(!P) return null;
+  const H=heardMidis(); let roots=[];
+  if(H.length){ const R=fitRoot(P,H); if(R!=null) roots=[R]; }
+  if(!roots.length){ if(P.pc==null) return null; roots=[36,48,60,72].map(o=>o+P.pc); }
+  const out=[]; roots.forEach(R=>P.iv.forEach(i=>out.push(R+i))); return out;
+}
+function snapM(f){
+  const m=69+12*Math.log2(f/S.a4), ns=cardNotes();
+  if(ns){
+    const near=ns.map(n=>({n:n,d:Math.abs(m-n)})).filter(x=>x.d<=1.5).sort((x,y)=>x.d-y.d);
+    if(near.length){
+      // the nearest note already holds a tube sounding clearly different → this is the tube of a free neighbour note
+      const c=S.chimes.find(x=>chimeM(x)===near[0].n);
+      if(c&&Math.abs(1200*Math.log2(f/c.f))>35){ const free=near.find(x=>!S.chimes.some(y=>chimeM(y)===x.n)); if(free) return free.n; }
+      return near[0].n;
+    }
+  }
+  return Math.round(m);
+}
+const chimeM=c=>c.m!=null?c.m:chimeM(c);
 const centsOf=f=>1200*Math.log2(f/mf(midiOf(f)));
 function noteParts(m){const n=(S.flat?NOTE_F:NOTE_S)[((m%12)+12)%12]; return {l:n[0],acc:n.slice(1),oct:Math.floor(m/12)-1};}
 function noteLabel(m){const p=noteParts(m); return p.l+p.acc+p.oct;}
@@ -1843,7 +1866,7 @@ function renderRec(now){
   const fill=$("recFill"); let pct=0, txt, good=true;
   if(tun.lock){
     pct=100; const c=tun.lastChime;
-    txt=c?(noteLabel(midiOf(c.f))+" · "+(c.grp.length>=S.conf?"confirmed with "+c.grp.length+" rings":"ring "+c.grp.length+" of "+S.conf+" · strike again to refine")):"Read · strike the next chime";
+    txt=c?(noteLabel(chimeM(c))+" · "+(c.grp.length>=S.conf?"confirmed with "+c.grp.length+" rings":"ring "+c.grp.length+" of "+S.conf+" · strike again to refine")):"Read · strike the next chime";
   } else if(tun.rb&&tun.rb.length&&tun.st){
     const st=tun.st; good=st.share>=0.7;
     pct=Math.min(100,Math.max(st.dur/600, st.se<=0.12?st.dur/250:0)*100);
@@ -1858,9 +1881,9 @@ function chordTargets(){
   const out=[], ap=activePattern();
   if(ap&&ap.iv&&ap.root!=null){
     const order=ap.order||ap.iv.map((_,i)=>i);
-    order.forEach(idx=>{ const m=ap.root+ap.iv[idx], c=S.chimes.find(x=>midiOf(x.f)===m); out.push({m:m,num:idx+1,center:c?c.f:targetFor(m).f,measured:!!c}); });
+    order.forEach(idx=>{ const m=ap.root+ap.iv[idx], c=S.chimes.find(x=>chimeM(x)===m); out.push({m:m,num:idx+1,center:c?c.f:targetFor(m).f,measured:!!c}); });
   } else {
-    S.chimes.slice().sort((a,b)=>a.f-b.f).forEach((c,i)=>out.push({m:midiOf(c.f),num:i+1,center:c.f,measured:true}));
+    S.chimes.slice().sort((a,b)=>a.f-b.f).forEach((c,i)=>out.push({m:chimeM(c),num:i+1,center:c.f,measured:true}));
   }
   return out;
 }
@@ -1931,10 +1954,10 @@ function finishChord(timeout){
       // in the mix the lower tube's 2x overtone covers the upper tube, so the pair is judged
       // from the single strikes (saved rings); the mix reading is shown beside it
       t.gapMix=1200*Math.log2(t.f/(2*low.f));
-      const ru=S.chimes.find(x=>midiOf(x.f)===t.m), rl=S.chimes.find(x=>midiOf(x.f)===t.m-12);
+      const ru=S.chimes.find(x=>chimeM(x)===t.m), rl=S.chimes.find(x=>chimeM(x)===t.m-12);
       t.fromStrikes=!!(ru&&rl); t.gap=t.fromStrikes?1200*Math.log2(ru.f/(2*rl.f)):t.gapMix;
       t.dev=t.gap-S.octOff; t.pairOf=low; const a=Math.abs(t.dev); t.state=a<=S.lockTol?"ok":a<=1?"near":"far"; }
-    else { t.dev=centsOf(t.f); t.state=stateOf(t.dev); } sum+=Math.max(0,100-20*Math.abs(t.dev)); cnt++;
+    else { t.dev=1200*Math.log2(t.f/mf(t.m)); t.state=stateOf(t.dev); } sum+=Math.max(0,100-20*Math.abs(t.dev)); cnt++;
   });
   const pairs=tubes.filter(t=>t.pairOf).map(t=>({low:t.pairOf,up:t,gap:t.gap,mix:t.gapMix,strikes:t.fromStrikes,locked:Math.abs(t.gap-S.octOff)<=S.lockTol}));
   pairs.forEach(p=>{ sum+=Math.max(0,100-100*Math.abs(p.gap-S.octOff)); cnt++; });
@@ -1957,12 +1980,12 @@ function chordClick(){ if(tun.chord){ tun.chord=null; chordUI(false,"Check chime
 $("chordBtn").addEventListener("click",chordClick); $("chordBtn2").addEventListener("click",chordClick);
 $("chClose").addEventListener("click",()=>{ $("chordBox").hidden=true; });
 function targetFor(nm){
-  if(S.octPair){ const low=S.chimes.find(x=>midiOf(x.f)===nm-12); if(low) return {f:low.f*2*Math.pow(2,S.octOff/1200), pair:noteLabel(nm-12)}; }
+  if(S.octPair){ const low=S.chimes.find(x=>chimeM(x)===nm-12); if(low) return {f:low.f*2*Math.pow(2,S.octOff/1200), pair:noteLabel(nm-12)}; }
   return {f:mf(nm), pair:null};
 }
 function showReading(f,held,weak,force){
   const now=performance.now(), st=INSTR[S.inst].str, m=69+12*Math.log2(f/S.a4);
-  const target=(S.tStr>=0&&st.includes(S.tStr))?mf(S.tStr):targetFor(Math.round(m)).f, c=1200*Math.log2(f/target);
+  const target=(S.tStr>=0&&st.includes(S.tStr))?mf(S.tStr):targetFor(snapM(f)).f, c=1200*Math.log2(f/target);
   $("needle").style.left=(50+Math.max(-50,Math.min(50,c)))+"%";
   if(S.numRate===0){
     const jump=tun.flowV==null||Math.abs(1200*Math.log2(f/tun.flowV))>50;
@@ -1988,7 +2011,7 @@ function flowStep(ts){
    (upper vs exact octave of lower). Locked = the saved rings' gap is within ±lockTol of the target. */
 function pairCtx(nm,f){
   if(!S.octPair) return null;
-  const low=S.chimes.find(x=>midiOf(x.f)===nm-12), up=S.chimes.find(x=>midiOf(x.f)===nm+12);
+  const low=S.chimes.find(x=>chimeM(x)===nm-12), up=S.chimes.find(x=>chimeM(x)===nm+12);
   if(low) return {lm:nm-12, um:nm, lf:low.f, uf:f, live:"up"};
   if(up) return {lm:nm, um:nm+12, lf:f, uf:up.f, live:"low"};
   const ap=activePattern();
@@ -2003,14 +2026,14 @@ function paintPair(nm,f,held){
   const box=$("pairBox"), P=pairCtx(nm,f);
   if(!P){ box.hidden=true; tun.lockOn=false; tun.lockSince=null; return; }
   box.hidden=false;
-  const side=(el,m,fr,live)=>{ el.classList.toggle("plive",live); el.querySelector("b").textContent=noteLabel(m); el.querySelector("span").textContent=fr?sgn(centsOf(fr),2)+" ¢":"not heard yet"; };
+  const side=(el,m,fr,live)=>{ el.classList.toggle("plive",live); el.querySelector("b").textContent=noteLabel(m); el.querySelector("span").textContent=fr?sgn(1200*Math.log2(fr/mf(m)),2)+" ¢":"not heard yet"; };
   side($("pLow"),P.lm,P.lf,P.live==="low"); side($("pUp"),P.um,P.uf,P.live==="up");
-  if(!P.lf||!P.uf){ $("pGap").textContent="↔"; $("pGapLab").textContent=P.lf?noteLabel(P.um)+" target "+sgn(centsOf(P.lf)+S.octOff,2)+" ¢":"upper "+sgn(S.octOff,1)+" ¢ above lower"; box.dataset.lock=""; $("lockPill").hidden=true; tun.lockOn=false; return; }
+  if(!P.lf||!P.uf){ $("pGap").textContent="↔"; $("pGapLab").textContent=P.lf?noteLabel(P.um)+" target "+sgn(1200*Math.log2(P.lf/mf(P.lm))+S.octOff,2)+" ¢":"upper "+sgn(S.octOff,1)+" ¢ above lower"; box.dataset.lock=""; $("lockPill").hidden=true; tun.lockOn=false; return; }
   const gap=1200*Math.log2(P.uf/(2*P.lf)), err=Math.abs(gap-S.octOff);
-  $("pGap").textContent=sgn(gap,2)+" ¢"; $("pGapLab").textContent=noteLabel(P.um)+" target "+sgn(centsOf(P.lf)+S.octOff,2)+" ¢";
+  $("pGap").textContent=sgn(gap,2)+" ¢"; $("pGapLab").textContent=noteLabel(P.um)+" target "+sgn(1200*Math.log2(P.lf/mf(P.lm))+S.octOff,2)+" ¢";
   // locked = the two saved rings sit inside the lock zone (the same rule as the 🔒 on the tiles),
   // so a short ring locks as soon as it is read, without having to ring on for a while
-  const sl=S.chimes.find(x=>midiOf(x.f)===P.lm), su=S.chimes.find(x=>midiOf(x.f)===P.um);
+  const sl=S.chimes.find(x=>chimeM(x)===P.lm), su=S.chimes.find(x=>chimeM(x)===P.um);
   const lockNow=!!(sl&&su&&Math.abs(1200*Math.log2(su.f/(2*sl.f))-S.octOff)<=S.lockTol);
   if(lockNow&&!tun.lockOn){ try{navigator.vibrate&&navigator.vibrate([30,40,30]);}catch(_){} }
   tun.lockOn=lockNow;
@@ -2018,7 +2041,7 @@ function paintPair(nm,f,held){
   $("lockPill").hidden=!(tun.lockOn&&(held||err<=S.lockTol*1.5));
 }
 function paintReading(f,held,weak){
-  const m=69+12*Math.log2(f/S.a4), nm=Math.round(m), st=INSTR[S.inst].str;
+  const nm=snapM(f), st=INSTR[S.inst].str;
   let target;
   let pairOf=null; if(S.tStr>=0&&st.includes(S.tStr)) target=mf(S.tStr); else { const TG=targetFor(nm); target=TG.f; pairOf=TG.pair; }
   const cents=1200*Math.log2(f/target), p=noteParts(nm), dHz=f-target, s=stateOf(cents);
@@ -2048,12 +2071,12 @@ const SETKEY="softpulse.chimesets";
 function avg(a){ return a.reduce((x,y)=>x+y,0)/a.length; }
 function recordCapture(f){
   f=Math.round(f*1000)/1000;
-  const nm=midiOf(f); let c=S.chimes.find(x=>midiOf(x.f)===nm);
+  const nm=snapM(f); let c=S.chimes.find(x=>chimeM(x)===nm);
   if(c&&!Array.isArray(c.grp)) c.grp=[c.f];
   if(!c){ const ok=patternAccepts(nm); if(ok!==true){ setMsg(ok); return; } }
   if(!c){
     if(S.chimes.length>=6){ setMsg("All six chimes are filled. Press Reset chimes to start the next set."); return; }
-    c={f:f,caps:[],grp:[]}; S.chimes.push(c);
+    c={f:f,m:nm,caps:[],grp:[]}; S.chimes.push(c);
   }
   // same sound as before → refine the average; clearly different (after grinding) → start again from this ring
   if(c.grp.length && Math.abs(1200*Math.log2(f/avg(c.grp)))>S.grpTol){ c.grp=[]; c.retunes=(c.retunes||0)+1; }
@@ -2063,7 +2086,7 @@ function recordCapture(f){
   tun.lastChime=c; tun.flash=nm; S.loaded=""; renderChimes(); save();
   // the finished ring is the most exact value: the big number, the gap meter and the tile all show it
   if(S.dispNR){ tun.last=c.f; tun.lastT=performance.now(); showReading(c.f,true,false,true); }
-  logRing(f);
+  logRing(f,nm);
 }
 function renderLast(){}
 /* ---------- Tuning log: every wayunki and every frequency heard while tuning it ---------- */
@@ -2080,9 +2103,9 @@ function logFill(e){
   e.updated=Date.now(); e.card=ap&&ap.card&&ap.root!=null?ap.name:(ap&&ap.name&&ap.root!=null?ap.name+" on "+noteLabel(ap.root):null);
   e.a4=S.a4; e.octOff=S.octPair?S.octOff:null; e.lockTol=S.lockTol; e.tol=S.tol;
   e.tubes=S.chimes.slice().sort((a,b)=>a.f-b.f).map(c=>{
-    const m=midiOf(c.f), TG=targetFor(m), low=S.octPair&&S.chimes.find(x=>midiOf(x.f)===m-12);
+    const m=chimeM(c), TG=targetFor(m), low=S.octPair&&S.chimes.find(x=>chimeM(x)===m-12);
     const gap=low?1200*Math.log2(c.f/(2*low.f)):null, g=c.grp||[c.f];
-    return {m:m,note:noteLabel(m),num:tubeNum(ap,m),f:+c.f.toFixed(3),cents:+centsOf(c.f).toFixed(2),target:+(1200*Math.log2(TG.f/mf(m))).toFixed(2),
+    return {m:m,note:noteLabel(m),num:tubeNum(ap,m),f:+c.f.toFixed(3),cents:+(1200*Math.log2(c.f/mf(m))).toFixed(2),target:+(1200*Math.log2(TG.f/mf(m))).toFixed(2),
       off:+(1200*Math.log2(c.f/TG.f)).toFixed(2),pair:low?noteLabel(m-12):null,gap:gap!=null?+gap.toFixed(2):null,locked:gap!=null&&Math.abs(gap-S.octOff)<=S.lockTol,
       rings:g.length,spread:g.length>1?+(1200*Math.log2(Math.max.apply(null,g)/Math.min.apply(null,g))/2).toFixed(2):0,retunes:c.retunes||0,
       links:hzMatches(c.f,false).filter(x=>!x.it.r).slice(0,3).map(x=>({n:x.it.n,ev:x.it.ev,c:+x.c.toFixed(1),k:x.k}))};
@@ -2100,7 +2123,7 @@ function logCommit(){
   if(curPageId()==="logCard") renderLog();
   return logNums(L.filter(x=>!x.deleted))[e.id]||e.n;
 }
-function logRing(f){ logSave(e=>{ e.rings.push({t:Date.now(),f:+f.toFixed(3),m:midiOf(f)}); }); }
+function logRing(f,m){ logSave(e=>{ e.rings.push({t:Date.now(),f:+f.toFixed(3),m:m!=null?m:midiOf(f)}); }); }
 function logNew(){ pendStore(null); if(curPageId()==="logCard") renderLog(); }
 function fmtDate(t){ const d=new Date(t), z=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+z(d.getMonth()+1)+"-"+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes()); }
 function logLive(){ return logLoad().filter(e=>!e.deleted); }
@@ -2338,7 +2361,7 @@ function giveFile(name,text,mime){
   $("logCopyText").value=text; $("logCopy").hidden=false;
 }
 
-function rootName(list){ if(!list.length) return ""; const lo=list.reduce((a,b)=>a.f<b.f?a:b); return noteLabel(midiOf(lo.f)); }
+function rootName(list){ if(!list.length) return ""; const lo=list.reduce((a,b)=>a.f<b.f?a:b); return noteLabel(chimeM(lo)); }
 /* Patterns: interval shapes of a six-chime set, in semitones above the root */
 /* The workshop's own chime cards. Card number 1 = lowest tube (root) … 6 = highest.
    Tuning goes from the root to the left on the card: 1, 2, 3, 4, 6, 5. */
@@ -2372,7 +2395,7 @@ function userPatterns(){
 }
 function allPatterns(){ return CARDS.concat(PATTERNS,userPatterns()); }
 function findPattern(id){ return allPatterns().find(p=>p.id===id)||null; }
-function heardMidis(){ return S.chimes.map(c=>midiOf(c.f)); }
+function heardMidis(){ return S.chimes.map(c=>chimeM(c)); }
 /* the root that fits every heard note (a card also fixes the key); prefers the first chime heard as the root */
 function rootOk(P,R){ return P.pc==null || ((R%12)+12)%12===P.pc; }
 function fitRoot(P,H){
@@ -2415,11 +2438,11 @@ function patternAccepts(nm){
   return fitRoot(P,H)!=null?true:(noteLabel(nm)+" is not in "+P.name+". Ignored. Press Reset or change the tuning if this is another set.");
 }
 function tileHTML(c,i,num){
-  const nm=midiOf(c.f), TG=targetFor(nm), ce=1200*Math.log2(c.f/TG.f), s=stateOf(ce);
-  const lowC=S.octPair&&S.chimes.find(x=>midiOf(x.f)===nm-12), gapT=lowC?1200*Math.log2(c.f/(2*lowC.f)):null, locked=gapT!=null&&Math.abs(gapT-S.octOff)<=S.lockTol;
+  const nm=chimeM(c), TG=targetFor(nm), ce=1200*Math.log2(c.f/TG.f), s=stateOf(ce);
+  const lowC=S.octPair&&S.chimes.find(x=>chimeM(x)===nm-12), gapT=lowC?1200*Math.log2(c.f/(2*lowC.f)):null, locked=gapT!=null&&Math.abs(gapT-S.octOff)<=S.lockTol;
   const g=c.grp||[c.f], conf=g.length>=S.conf, spread=g.length>1?(Math.max.apply(null,g)-Math.min.apply(null,g))/2:null;
   const LK='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>';
-  const shown=TG.pair?centsOf(c.f):ce, tgtTxt=TG.pair?(locked?'<span class="tlock">'+LK+'target '+sgn(1200*Math.log2(TG.f/mf(nm)),DP())+'</span>':'target '+sgn(1200*Math.log2(TG.f/mf(nm)),DP()))+'<br>':'';
+  const shown=TG.pair?1200*Math.log2(c.f/mf(nm)):ce, tgtTxt=TG.pair?(locked?'<span class="tlock">'+LK+'target '+sgn(1200*Math.log2(TG.f/mf(nm)),DP())+'</span>':'target '+sgn(1200*Math.log2(TG.f/mf(nm)),DP()))+'<br>':'';
   return '<div class="ctile '+s+(conf?"":" prov")+(locked?" locked":"")+(tun.flash===nm?" flash":"")+'"><button type="button" class="cx" data-del="'+nm+'" aria-label="Remove '+noteLabel(nm)+'">×</button>'+
     '<span class="cn">'+(num||i+1)+(num===1?" · root":"")+'</span><b>'+noteLabel(nm)+'</b><strong>'+sgn(shown,DP())+'</strong>'+
     '<em>'+tgtTxt+(locked&&!TG.pair?'<span class="tlock"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8.2 10.5V7.8a3.8 3.8 0 0 1 7.6 0v2.7"/></svg>locked</span><br>':'')+(conf?'✓ '+g.length+' rings':'ring '+g.length+' of '+S.conf)+(spread!=null?' · ±'+spread.toFixed(DP()):'')+'</em></div>';
@@ -2446,7 +2469,7 @@ function renderChimes(){
   if(ap&&ap.iv&&ap.root!=null){
     const targets=ap.iv.map(i=>ap.root+i), order=ap.order||targets.map((_,i)=>i); let nextDone=false; const missing=[];
     order.forEach(idx=>{
-      const t=targets[idx], num=idx+1, c=S.chimes.find(x=>midiOf(x.f)===t);
+      const t=targets[idx], num=idx+1, c=S.chimes.find(x=>chimeM(x)===t);
       if(c){ html+=tileHTML(c,idx,num); return; }
       missing.push(noteLabel(t));
       const nx=!nextDone; nextDone=true;
@@ -2474,7 +2497,7 @@ function renderChimes(){
   }
   info.hidden=!info.textContent;
   $("cgrid").innerHTML=html; tun.flash=null;
-  const n=S.chimes.length, ok=S.chimes.filter(c=>{ const TG=targetFor(midiOf(c.f)); return stateOf(1200*Math.log2(c.f/TG.f))==="ok"; }).length, nLock=S.chimes.filter(c=>{ const l=S.octPair&&S.chimes.find(x=>midiOf(x.f)===midiOf(c.f)-12); return l&&Math.abs(1200*Math.log2(c.f/(2*l.f))-S.octOff)<=S.lockTol; }).length;
+  const n=S.chimes.length, ok=S.chimes.filter(c=>{ const TG=targetFor(chimeM(c)); return stateOf(1200*Math.log2(c.f/TG.f))==="ok"; }).length, nLock=S.chimes.filter(c=>{ const l=S.octPair&&S.chimes.find(x=>chimeM(x)===chimeM(c)-12); return l&&Math.abs(1200*Math.log2(c.f/(2*l.f))-S.octOff)<=S.lockTol; }).length;
   $("chimeCount").textContent=n+" of 6"+(n?" · "+ok+" in tune":"")+(nLock?" · "+nLock+" octave"+(nLock>1?"s":"")+" locked":"");
   $("chSave").textContent="Save set";
   $("chSave").disabled=!n;
@@ -2491,7 +2514,7 @@ function renderSets(){ renderPatSel(); if($("setsEmpty")) $("setsEmpty").hidden=
 }
 $("cgrid").addEventListener("click",e=>{
   const b=e.target.closest("[data-del]"); if(!b) return; const nm=+b.dataset.del;
-  S.chimes=S.chimes.filter(c=>midiOf(c.f)!==nm); renderChimes(); save(); logSave();
+  S.chimes=S.chimes.filter(c=>chimeM(c)!==nm); renderChimes(); save(); logSave();
 });
 /* fresh start of the listening engine: noise memory, ring reading, big number, Hz match (settings are kept) */
 function resetHearing(){
